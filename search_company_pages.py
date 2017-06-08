@@ -63,7 +63,8 @@ def main():
 			pagetxt = urllib.request.urlopen(url, timeout=10).read().decode('utf-8').lower()
 			proportion = sum(check_strings(A, word_list, pagetxt)) / len(word_list)
 			results_list.append(proportion)
-		except (UnicodeDecodeError, urllib.error.URLError, urllib.error.HTTPError, timeout):
+		# except (UnicodeDecodeError, urllib.error.URLError, urllib.error.HTTPError, timeout):
+		except:
 			results_list.append(None)
 			bad_url_list.append(url)
 	print("")
