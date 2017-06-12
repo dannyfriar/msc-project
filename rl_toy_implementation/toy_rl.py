@@ -39,6 +39,7 @@ def load_csv_to_list(file_name):
 def find_links(url):
 	"""Obtain list of links from a URL"""
 	link_list = []
+	full_link_list = []
 	try:
 		page = urllib.request.urlopen(url)
 		soup = BeautifulSoup(page, 'lxml', from_encoding=page.info().get_param('charset'))
@@ -51,12 +52,12 @@ def find_links(url):
 	return link_list
 
 
-def make_automaton(string_list):
+def init_automaton(string_list):
 	"""Make Aho-Corasick automaton from a list of strings"""
 	A = ahocorasick.Automaton()
 	for idx, s in enumerate(string_list):
 		A.add_word(s, (idx, s))
-	return A.make_automaton()
+	return A
 
 def check_strings(A, search_list, pagetxt):
 	"""Use Aho Corasick algorithm to produce boolean list indicating
@@ -89,25 +90,25 @@ def main():
 	# Load in company names, URLs and vertical keywords
 	word_list = load_csv_to_list('../data/vert_desc_words.csv')
 	name_list = load_csv_to_list('../data/company_names.csv')
+	print(len_name_list)
+	stop
 	url_list = list(set(load_csv_to_list('../data/company_urls.csv')))
-	# print(find_links(start_url))
 
 	# Make Aho-Corasick automatons	
-	A_vert = make_automaton(word_list)
-	A_comp = make_automaton(name_list)
+	A_vert = init_automaton(word_list)
+	A_vert.make_automaton()
+	A_comp = init_automaton(name_list)
+	A_comp.make_automaton()
 
 	##-------------- Crawling ---------------
 	pages_crawled = 0
 	rewards = 0
-
-	stop
 
 	while True:
 		# Choose start URL
 		url = random.choice(url_list)
 
 		while True:
-			print(url)
 			pages_crawled += 1
 			print("------ Crawled %d pages, receiving %d rewards" % (pages_crawled, rewards))
 
@@ -117,13 +118,15 @@ def main():
 				print("Choosing again...")
 				break
 			url = random.choice(link_list)
+			print(url)
 
 			# Check for reward within page
 			try:
 				pagetxt = urllib.request.urlopen(url, timeout=8).read().decode('utf-8').lower()
-				if sum(check_strings(A_vert, word_list, pagetxt)) > 0:
+				if sum(check_strings(A_comp, name_list, pagetxt)) > 0:
 					rewards += 1
-			except:
+			except UnicodeDecodeError:
+				print("Excepted")
 				pass
 
 
