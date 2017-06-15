@@ -26,3 +26,30 @@ ggsave(file="../figures/our_work/comp_scatter.png", g3)
 g3
 
 cor(prop$vert_desc_prop, prop$name_prop)
+
+
+#------------------------------------
+# Load check rewards data
+check_df <- read.csv('results/check_rewards.csv')
+# check_df$name <- as.character(check_df$name)
+# check_df$name_length <- nchar(check_df$name)
+# check_df <- check_df[order(check_df$name_length), ]
+
+check_df <- check_df[check_df$count > 0, ]
+check_df <- check_df[order(-check_df$count), ]
+
+
+# Load vert frequency data
+vert_df <- read.csv('results/vert_freq.csv')
+View(vert_df)
+
+
+# Load crawled pages
+crawled_pages <- read.csv('results/crawled_pages.csv')
+View(crawled_pages)
+
+
+
+
+
+

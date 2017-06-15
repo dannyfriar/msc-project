@@ -54,10 +54,7 @@ def main():
 	word_list = load_csv_to_list('../data/vert_desc_words.csv')
 	name_list = load_csv_to_list('../data/company_names.csv')
 	url_list = load_csv_to_list('../data/company_urls.csv')
-	url_list = list(set(url_list))
 
-	print(len(word_list))
-	print(len(name_list))
 
 	#---------------------- Search within pages
 	# Build Aho Corasick search list for company names
@@ -108,7 +105,7 @@ def main():
 	# Save results
 	results_df = pd.DataFrame.from_dict(results_dict)
 	print(results_df)
-	# results_df.to_csv('../data/proportion_companies.csv', index=False)
+	# results_df.to_csv('results/proportion_companies.csv', index=False)
 
 
 if __name__ == "__main__":
