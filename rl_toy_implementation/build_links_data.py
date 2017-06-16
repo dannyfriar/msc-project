@@ -33,11 +33,17 @@ def get_list_of_links(url, s=storage):
 def get_all_links(url_list):
 	"""Get all links from a list of URLs"""
 	full_link_list = []
-	for url in url_list:
-		link_list = get_list_of_links(url)
+	skipped_urls = []
+	for idx, url in enumerate(url_list):
+		progress_bar(idx+1, len(url_list))
+		try:
+			link_list = get_list_of_links(url)
+		except (UnicodeError, IndexError):
+			skipped_urls.append(url)
 		full_link_list = full_link_list + link_list
 	full_link_list = full_link_list + url_list
 	full_link_list = list(set(full_link_list))
+	print("\nSkipped %d URLs" % len(skipped_urls))
 	return full_link_list
 
 
@@ -58,22 +64,18 @@ def main():
 	first_hop_links = [l for l in first_hop_links if l not in url_list if l[0] != "\""]
 	first_hop_links = [l.replace("http://", "") for l in first_hop_links]
 	first_hop_links = [l.replace("https://", "") for l in first_hop_links]
-	print(len(first_hop_links))
 	first_hop_df = pd.DataFrame.from_dict({"url": first_hop_links})
-	first_hop_df.to_csv("data/first_hop_links.csv", index=False, header=False)
+	# first_hop_df.to_csv("data/first_hop_links.csv", index=False, header=False)
 
 	## Second hop links
-	storage = StorageEngine("/companies-data/webcache2")
-	# url = random.choice(first_hop_links)
-	url = "www.scottfree.co.uk"
-	print(url)
-	print(storage.get_page(url))
-
-
-
-
-
-
+	print(len(first_hop_links))
+	second_hop_links = get_all_links(first_hop_links)
+	print(len(second_hop_links))
+	second_hop_links = [l for l in second_hop_links if l not in url_list+first_hop_links if len(l)>0 if l[0] != "\""]
+	second_hop_links = [l.replace("http://", "") for l in second_hop_links]
+	second_hop_links = [l.replace("https://", "") for l in second_hop_links]
+	second_hop_df = pd.DataFrame.from_dict({"url": second_hop_links})
+	second_hop_df.to_csv("data/second_hop_links.csv", index=False, header=False)
 
 
 
