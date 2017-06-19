@@ -14,6 +14,9 @@ from collections import OrderedDict
 from evolutionai import StorageEngine
 storage = StorageEngine("/nvme/webcache/")
 
+from nltk.corpus import stopwords, words, names
+stops = stopwords.words("english")
+
 ##-----------------------------------------------------------
 ##-------- Miscellaneous Functions --------------------------
 def progress_bar(value, endvalue, bar_length=20):
@@ -67,23 +70,55 @@ def get_all_links(url_list):
 
 
 ##-----------------------------------------------------------
-##-------- RL Functions -------------------------------------
-def get_reward(url, company_urls):
-	"""Return 1 if company URL, 0 otherwise"""
-	return 1 if url in company_urls else 0
+##-------- String Functions ---------------------------------
+def get_words_from_url(url, pattern=re.compile(r'[\:/?=\-&.]+',re.UNICODE)):
+	"""Split URL into words"""
+	word_list = pattern.split(url)
+	word_list = list(set(word_list))
+	word_list = [word for word in word_list if word not in ['http', 'www']+stops]
+	return word_list
 
+def bow_url_list(url_list):
+	"""Takes URL list and forms bag-of-words representation"""
+	all_urls = "-".join(url_list)
+	return get_words_from_url(all_urls)
+
+def init_automaton(string_list):
+	"""Make Aho-Corasick automaton from a list of strings"""
+	A = ahocorasick.Automaton()
+	for idx, s in enumerate(string_list):
+		A.add_word(s, (idx, s))
+	return A
+
+def check_strings(A, search_list, string_to_search):
+	"""Use Aho Corasick algorithm to produce boolean list indicating
+	prescence of strings within a longer string"""
+	index_list = []
+	for item in A.iter(string_to_search):
+		index_list.append(item[1][0])
+
+	output_list = np.array([0] * len(search_list))
+	output_list[index_list] = 1
+	return output_list.tolist()
+
+def build_url_feature_vector(A, search_list, string_to_search):
+	"""Presence of search_list words in string,
+	along with length of string"""
+	feature_vector = check_strings(A, search_list, string_to_search)
+	feature_vector.append(len(string_to_search))
+	return feature_vector
 
 
 ##-----------------------------------------------------------
 ##-------- DQN Agent ----------------------------------------
 class CrawlerAgent(object):
 
-	def __init__(self, url_list, reward_urls, 
-		train_save_location = "results/dqn_crawler_train_results.csv",
-		tf_model_folder = "models",
-		discount_factor = 0.99, epsilon = 0.1,
-		learning_rate = 0.001,
-		cycle_freq=8, num_steps=5000, print_freq=1000):
+	def __init__(self, url_list, reward_urls, word_list,
+		discount_factor=0.99,
+		learning_rate=0.001,
+		cycle_freq=10, num_steps=5000, print_freq=1000,
+		train_save_location="results/dqn_crawler_train_results.csv",
+		tf_model_folder="models"):
 
 		# Set up state space
 		self.url_list = url_list
@@ -94,13 +129,17 @@ class CrawlerAgent(object):
 
 		# Training parameters - RL and TF
 		self.discount_factor = discount_factor
-		self.epsilon = epsilon
-
 		self.learning_rate = learning_rate
 
+		# Build search words
+		self.words = word_list
+		self.A = init_automaton(self.words)
+		self.A.make_automaton()
 
 		# Tensorflow placeholders
-
+		self.state = tf.placeholder(dtype=tf.float32, shape=[None, len(self.words)+1])
+		self.reward = tf.placeholder(dtype=tf.float32, shape=[None, 1])
+		self.build_target_net()
 
 		# Set up train results dict
 		self.train_results_dict = OrderedDict()
@@ -110,79 +149,46 @@ class CrawlerAgent(object):
 		self.train_save_location = train_save_location
 		self.tf_model_folder = tf_model_folder
 
-
 	def build_target_net(self):
 		"""Build TF target network"""
+		# idx = tf.where(tf.not_equal(self.state, 0))
+		# sparse_state = tf.SparseTensor(idx, tf.gather_nd(self.state, idx), self.state.get_shape())
+		self.weights = tf.get_variable("weights", [len(self.words)+1, 1], initializer = tf.random_normal_initializer())
+		# self.v = sparse_tensor_dense_matmul(sparse_state, self.weights)
+		self.v = tf.sigmoid(tf.matmul(self.state, self.weights))
+
+	def train_target_net(self):
+		""""""
 		pass
 
-
-	def train_crawler(self):
-		"""Start crawling from a starting URL"""
-		step_count = 0
-		pages_crawled = 0
-		total_reward = 0
-		terminal_states = 0
-		reward_pages = []
-		recent_urls = []
-
-		while step_count < self.num_steps:
-			url = random.choice([l for l in self.url_list if l not in recent_urls])  # don't start at recent URL
-
-			while step_count < self.num_steps:
-				step_count += 1
-
-				# Track progress
-				progress_bar(step_count+1, self.num_steps)
-				if step_count % self.print_freq == 0:
-					print("\nCrawled {} pages, total reward = {}, # terminal states = {}"\
-					.format(pages_crawled, total_reward, terminal_states))
-
-				self.train_results_dict['pages_crawled'].append(pages_crawled)
-				self.train_results_dict['total_reward'].append(total_reward)
-				self.train_results_dict['terminal_states'].append(terminal_states)
-
-				# Keep track of recent URLs (to avoid loops)
-				recent_urls.append(url)
-				if len(recent_urls) > self.cycle_freq:
-					recent_urls = recent_urls[-self.cycle_freq:]
-
-				# Get rewards
-				r = get_reward(url, self.reward_urls)
-				pages_crawled += 1
-				total_reward += r
-				if r > 0:
-					reward_pages.append(url)
-
-				# Move to next URL
-				link_list = get_list_of_links(url)
-				link_list = [l for l in link_list if l in self.url_list if l not in recent_urls]
-				if len(link_list) == 0:
-					terminal_states += 1
-					break
-				url = random.choice(link_list)
-
-		print("\nCrawled {} pages, total reward = {}, # terminal states = {}"\
-			.format(pages_crawled, total_reward, terminal_states))
-
-		##----------------- Save results
-		train_results_df = pd.DataFrame.from_dict(self.train_results_dict)
-		train_results_df.to_csv(self.train_save_location, header=True, index=False)
-
-		reward_pages_df = pd.DataFrame(reward_urls, columns=["url"])
-		reward_pages_df.to_csv('results/train_reward_pages.csv', index=False)
+	def save_train_results(self):
+		"""Save train_results_dict as a Pandas dataframe"""
+		train_results_df = pd.DataFrame(self.train_results_dict)
+		train_results_df.to_csv(self.train_save_location, index=False, header=True)
 
 
+##-----------------------------------------------------------
+##-------- RL Functions -------------------------------------
+def get_reward(url, company_urls):
+	"""Return 1 if company URL, 0 otherwise"""
+	return 1 if url in company_urls else 0
 
+def epsilon_greedy(epsilon, action_list):
+	"""Returns index of chosen action"""
+	if random.uniform(0, 1) > epsilon:
+		return np.argmax(action_list)
+	else:
+		return random.randint(0, len(action_list)-1)
 
 
 ##-----------------------------------------------------------
 ##-----------------------------------------------------------
 def main():
-	## Parameters
+	##-------------------- Parameters
 	cycle_freq = 5
 	number_crawls = 10000  # no. crawled pages before stopping
 	print_freq = 1000
-
+	epsilon = 0.1
 
 	##-------------------- Read in data
 	# Company i.e. reward URLs
@@ -201,13 +207,76 @@ def main():
 	# Remove any pages that obviously won't have hyperlinks/rewards
 	url_list = [l for l in url_list if l[-4:] not in [".png", ".jpg", ".pdf", ".txt"]]
 
+	# Load vert words
+	words_list = load_csv_to_list('../data/vert_desc_words.csv')
+	# word_list = words.words() + names.words()
+	words_list = [w for w in words_list if w not in stops]
+	words_list = [w for w in words_list if len(w) > 1]
 
-	##------------------- Initialize Crawler Agent
-	agent = CrawlerAgent(url_list, reward_urls)
-	agent.train_crawler()
+	##------------------- Initialize and train Crawler Agent
+	step_count = 0
+	pages_crawled = 0
+	total_reward = 0
+	terminal_states = 0
+	reward_pages = []
+	recent_urls = []
 
+	##-----------------------
+	with tf.device('/cpu:0'):
+		tf.reset_default_graph()
+		agent = CrawlerAgent(url_list, reward_urls, words_list)
 
+		init = tf.global_variables_initializer()
 
+		with tf.Session() as sess:
+			sess.run(init)
+
+			while step_count < agent.num_steps:
+				url = random.choice([l for l in agent.url_list if l not in recent_urls])  # don't start at recent URL
+
+				while step_count < agent.num_steps:
+					step_count += 1
+
+					# Track progress
+					progress_bar(step_count+1, agent.num_steps)
+					if step_count % agent.print_freq == 0:
+						print("\nCrawled {} pages, total reward = {}, # terminal states = {}"\
+						.format(pages_crawled, total_reward, terminal_states))
+					agent.train_results_dict['pages_crawled'].append(pages_crawled)
+					agent.train_results_dict['total_reward'].append(total_reward)
+					agent.train_results_dict['terminal_states'].append(terminal_states)
+
+					# Keep track of recent URLs (to avoid loops)
+					recent_urls.append(url)
+					if len(recent_urls) > agent.cycle_freq:
+						recent_urls = recent_urls[-agent.cycle_freq:]
+
+					# Get rewards
+					r = get_reward(url, agent.reward_urls)
+					pages_crawled += 1
+					total_reward += r
+					if r > 0:
+						reward_pages.append(url)
+
+					# Choose a next URL
+					link_list = get_list_of_links(url)
+					link_list = [l for l in link_list if l in agent.url_list if l not in recent_urls]
+
+					if len(link_list) == 0:
+						terminal_states += 1
+						break
+
+					next_state_list = [np.array(build_url_feature_vector(agent.A, agent.words, l)) for l in link_list]
+					next_state_array = np.array(next_state_list)
+					v = sess.run(agent.v, feed_dict={agent.state: next_state_array})
+					a = epsilon_greedy(epsilon, v)
+					url = link_list[a]
+
+			print("\nCrawled {} pages, total reward = {}, # terminal states = {}"\
+				.format(pages_crawled, total_reward, terminal_states))
+			agent.save_train_results()
+
+		sess.close()
 
 
 
@@ -216,4 +285,5 @@ def main():
 
 
 if __name__ == "__main__":
+	random.seed(1234)
 	main()

@@ -118,8 +118,8 @@ def main():
 		start_url_list = [l for l in url_list if l not in all_crawled_pages]  # don't start at an old URL
 		url = random.choice(start_url_list)
 
-		while count_idx < number_crawls:
-			count_idx += 1
+		while step_count < number_crawls:
+			step_count += 1
 
 			# Track progress
 			progress_bar(count_idx, number_crawls)
