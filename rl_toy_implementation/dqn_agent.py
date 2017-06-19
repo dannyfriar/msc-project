@@ -111,6 +111,47 @@ def build_url_feature_vector(A, search_list, string_to_search):
 
 
 ##-----------------------------------------------------------
+##-------- Buffer -------------------------------------------
+class Buffer(object):
+
+	def __init__(self, load_buffer=False, sample_size=50,
+		save_file="data/buffer_data/replay_buffer.csv"):
+		self.save_file = save_file
+		if load_buffer = True:
+			buffer_df = pd.read_csv(self.save_file)
+			self.buffer = buffer_df.to_dict()
+		else:
+			self.buffer = OrderedDict()
+			self.buffer['state'] = []
+			self.buffer['next_state'] = []
+			self.buffer['reward'] = []
+			self.buffer['is_terminal'] = []
+
+	def update(self, s, next_s, r, is_terminal):
+		"""Update buffer with new transition (list of tuples)"""
+		self.buffer['state'].append(s)
+		self.buffer['next_state'].append(next_s)
+		self.buffer['reward'].append(r)
+		self.buffer['is_terminal'].append(is_terminal)
+
+	def save(self):
+		"""Write buffer to CSV file"""
+		buffer_df = pd.DataFrame.from_dict(self.buffer)
+		buffer_df.to_csv(self.save_file, index=False, header=True)
+
+	def sample(self):
+		"""Return a sample (dictionary) from the buffer"""
+		buffer_size = len(self.buffer['reward'])
+		sample_indices = random.choice(range(buffer_size))
+		sample_dict = {
+			'state': self.buffer['state'][sample_indices]
+			'next_state': self.buffer['next_state'][sample_indices]
+			'reward': self.buffer['reward'][sample_indices]
+			'is_terminal': self.buffer['is_terminal'][sample_indices]
+		}
+		return sample_dict
+
+##-----------------------------------------------------------
 ##-------- DQN Agent ----------------------------------------
 class CrawlerAgent(object):
 
@@ -120,28 +161,25 @@ class CrawlerAgent(object):
 		train_save_location="results/dqn_crawler_train_results.csv",
 		tf_model_folder="models/linear_model"):
 
-		# Set up state space
+		# Set up state space and training parameters
 		self.url_list = url_list
 		self.reward_urls = reward_urls
 		self.cycle_freq = cycle_freq
 		self.num_steps = num_steps
 		self.print_freq = print_freq
-
-		# Training parameters - RL and TF
 		self.gamma = gamma  # discount factor
 		self.learning_rate = learning_rate
-
-		# Build search words
 		self.words = word_list
 		self.A = init_automaton(self.words)
 		self.A.make_automaton()
 
-		# Tensorflow placeholders
+		# Tensorflow placeholders and initialize buffer
 		self.state = tf.placeholder(dtype=tf.float32, shape=[None, len(self.words)+1])
 		self.next_state = tf.placeholder(dtype=tf.float32, shape=[None, len(self.words)+1])
 		self.reward = tf.placeholder(dtype=tf.float32)
 		self.is_terminal = tf.placeholder(dtype=tf.float32)
 		self.build_target_net()
+		self.replay_buffer = Buffer()
 
 		# Set up train results dict
 		self.train_results_dict = OrderedDict()
@@ -192,9 +230,10 @@ def epsilon_greedy(epsilon, action_list):
 ##-----------------------------------------------------------
 def main():
 	##-------------------- Parameters
-	cycle_freq = 20
-	numb_steps = 20000  # no. crawled pages before stopping
+	cycle_freq = 50
+	num_steps = 30000  # no. crawled pages before stopping
 	print_freq = 1000
+	buffer_save_freq = 1000
 	epsilon = 0.05
 
 	##-------------------- Read in data
@@ -260,7 +299,7 @@ def main():
 				agent.train_results_dict['total_reward'].append(total_reward)
 
 				# Feature representation of current page (state) and links in page
-				state = np.array(build_url_feature_vector(agent.A, agent.words, url))
+				state = np.array(build_url_feature_vector(agent.A, agent.words, url)).reshape(1, -1)
 				link_list = get_list_of_links(url)
 				link_list = [l for l in link_list if l in agent.url_list if l not in recent_urls]
 
@@ -276,13 +315,19 @@ def main():
 
 				# Train DQN
 				train_dict = {
-						agent.state: state.reshape(1, -1),
+						agent.state: state,
 						agent.next_state: next_state_array, 
 						agent.reward: r, 
 						agent.is_terminal: is_terminal
 				}
 				opt, loss, v_next, v  = sess.run([agent.opt, agent.loss, agent.v_next, agent.v], feed_dict=train_dict)
 				agent.train_results_dict['nn_loss'].append(float(loss))
+
+				# # Update buffer
+				# agent.replay_buffer.update(state, next_state_array, r, is_terminal)
+				# if step_count % buffer_save_freq == 0:
+					# agent.replay_buffer.save()
+				# input("Enter to continue...")
 
 				## Print progress
 				# For debugging i.e. check the value function actually changes
@@ -297,9 +342,14 @@ def main():
 					.format(pages_crawled, total_reward, terminal_states))
 				agent.train_results_dict['pages_crawled'].append(pages_crawled)
 
-				# Choose next URL
+				# Choose next URL (and check for looping)
 				if is_terminal == 1:
 					break
+				# elif step_count >= 100 and agent.train_results_dict['terminal_states'][step_count-50] == terminal_states:
+				# 	print("\nBREAKING CYCLE!!!!")
+				# 	print(agent.train_results_dict['terminal_states'][step_count-50])
+				# 	print(terminal_states)
+				# 	break
 				a = epsilon_greedy(epsilon, v_next)
 				url = link_list[a]
 
@@ -319,5 +369,5 @@ def main():
 
 
 if __name__ == "__main__":
-	random.seed(1234)
+	# random.seed(1234)
 	main()

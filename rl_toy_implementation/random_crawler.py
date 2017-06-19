@@ -103,7 +103,7 @@ def main():
 
 	# Parameters
 	cycle_freq = 5
-	number_crawls = 10000
+	number_crawls = 30000
 	print_freq = 1000
 
 	# To store
@@ -118,8 +118,8 @@ def main():
 		start_url_list = [l for l in url_list if l not in all_crawled_pages]  # don't start at an old URL
 		url = random.choice(start_url_list)
 
-		while step_count < number_crawls:
-			step_count += 1
+		while count_idx < number_crawls:
+			count_idx += 1
 
 			# Track progress
 			progress_bar(count_idx, number_crawls)
@@ -154,7 +154,7 @@ def main():
 
 	##----------------- Save results
 	results_df = pd.DataFrame.from_dict(results_dict)
-	results_df.to_csv("results/random_crawler_results.csv", header=True, index=False)
+	results_df.to_csv("results/random_crawler_results_new.csv", header=True, index=False)
 
 
 
