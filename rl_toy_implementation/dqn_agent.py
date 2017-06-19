@@ -80,9 +80,10 @@ class CrawlerAgent(object):
 
 	def __init__(self, url_list, reward_urls, 
 		train_save_location = "results/dqn_crawler_train_results.csv",
-		results_save_location = "results/dqn_crawler_results.csv",
 		tf_model_folder = "models",
-		cycle_freq=5, num_steps=10000, print_freq=1000):
+		discount_factor = 0.99, epsilon = 0.1,
+		learning_rate = 0.001,
+		cycle_freq=8, num_steps=5000, print_freq=1000):
 
 		# Set up state space
 		self.url_list = url_list
@@ -91,15 +92,28 @@ class CrawlerAgent(object):
 		self.num_steps = num_steps
 		self.print_freq = print_freq
 
+		# Training parameters - RL and TF
+		self.discount_factor = discount_factor
+		self.epsilon = epsilon
+
+		self.learning_rate = learning_rate
+
+
+		# Tensorflow placeholders
+
+
 		# Set up train results dict
 		self.train_results_dict = OrderedDict()
 		self.train_results_dict['pages_crawled'] = []
 		self.train_results_dict['total_reward'] = []
-		self.train_results_dict['terminal_states'] = [] 
-		self.crawled_pages = []
+		self.train_results_dict['terminal_states'] = []
+		self.train_save_location = train_save_location
+		self.tf_model_folder = tf_model_folder
 
-		# Crawler results dict
-		self.results_dict = self.train_results_dict
+
+	def build_target_net(self):
+		"""Build TF target network"""
+		pass
 
 
 	def train_crawler(self):
@@ -108,10 +122,11 @@ class CrawlerAgent(object):
 		pages_crawled = 0
 		total_reward = 0
 		terminal_states = 0
+		reward_pages = []
+		recent_urls = []
 
 		while step_count < self.num_steps:
-			start_list = [l for l in self.url_list if l not in self.crawled_pages]  # don't start at an old URL
-			url = random.choice(start_list)
+			url = random.choice([l for l in self.url_list if l not in recent_urls])  # don't start at recent URL
 
 			while step_count < self.num_steps:
 				step_count += 1
@@ -127,13 +142,16 @@ class CrawlerAgent(object):
 				self.train_results_dict['terminal_states'].append(terminal_states)
 
 				# Keep track of recent URLs (to avoid loops)
-				self.crawled_pages.append(url)
-				recent_urls = self.crawled_pages[-self.cycle_freq:]
+				recent_urls.append(url)
+				if len(recent_urls) > self.cycle_freq:
+					recent_urls = recent_urls[-self.cycle_freq:]
 
 				# Get rewards
 				r = get_reward(url, self.reward_urls)
 				pages_crawled += 1
 				total_reward += r
+				if r > 0:
+					reward_pages.append(url)
 
 				# Move to next URL
 				link_list = get_list_of_links(url)
@@ -143,12 +161,15 @@ class CrawlerAgent(object):
 					break
 				url = random.choice(link_list)
 
-		print("\nCrawled {} pages, total reward = {}, # terminal states = {}, errors = {}"\
-			.format(pages_crawled, total_reward, terminal_states, errors))
+		print("\nCrawled {} pages, total reward = {}, # terminal states = {}"\
+			.format(pages_crawled, total_reward, terminal_states))
 
 		##----------------- Save results
 		train_results_df = pd.DataFrame.from_dict(self.train_results_dict)
 		train_results_df.to_csv(self.train_save_location, header=True, index=False)
+
+		reward_pages_df = pd.DataFrame(reward_urls, columns=["url"])
+		reward_pages_df.to_csv('results/train_reward_pages.csv', index=False)
 
 
 
