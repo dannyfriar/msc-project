@@ -4,6 +4,7 @@ import re
 import csv
 import time
 import random
+import pickle
 import argparse
 import ahocorasick
 import numpy as np
@@ -28,13 +29,6 @@ def progress_bar(value, endvalue, bar_length=20):
     sys.stdout.write("\rPercent complete: [{0}] {1}%".format(arrow + spaces, int(round(percent * 100))))
     sys.stdout.flush()
 
-def load_csv_to_list(file_name):
-	"""Loads single column CSV as list"""
-	with open(file_name) as f:
-		reader = csv.reader(f)
-		return list(reader)[0]
-
-
 ##-----------------------------------------------------------
 ##-------- Get links from LMDB data functions ---------------
 def get_list_of_links(url, s=storage):
@@ -47,43 +41,14 @@ def get_list_of_links(url, s=storage):
 		return []
 	try:
 		link_list = [l.url for l in page.links if l.url[:4] == "http"]
-		link_list = [l.replace("http://", "") for l in link_list]
-		link_list = [l.replace("https://", "") for l in link_list]
+		link_list = [l.replace("http://", "").replace("https://", "") for l in link_list]
 	except UnicodeDecodeError:
 		return []
 	return link_list
 
-def get_all_links(url_list):
-	"""Get all links from a list of URLs"""
-	full_link_list = []
-	skipped_urls = []
-	for idx, url in enumerate(url_list):
-		# progress_bar(idx+1, len(url_list))
-		try:
-			link_list = get_list_of_links(url)
-		except (UnicodeError, IndexError):
-			skipped_urls.append(url)
-		full_link_list = full_link_list + link_list
-	full_link_list = full_link_list + url_list
-	full_link_list = list(set(full_link_list))
-	# print("\nSkipped %d URLs" % len(skipped_urls))
-	return full_link_list
-
 
 ##-----------------------------------------------------------
 ##-------- String Functions ---------------------------------
-def get_words_from_url(url, pattern=re.compile(r'[\:/?=\-&.]+',re.UNICODE)):
-	"""Split URL into words"""
-	word_list = pattern.split(url)
-	word_list = list(set(word_list))
-	word_list = [word for word in word_list if word not in ['http', 'www']+stops]
-	return word_list
-
-def bow_url_list(url_list):
-	"""Takes URL list and forms bag-of-words representation"""
-	all_urls = "-".join(url_list)
-	return get_words_from_url(all_urls)
-
 def init_automaton(string_list):
 	"""Make Aho-Corasick automaton from a list of strings"""
 	A = ahocorasick.Automaton()
@@ -115,11 +80,13 @@ def build_url_feature_vector(A, search_list, string_to_search):
 class Buffer(object):
 
 	def __init__(self, load_buffer=False, sample_size=50,
-		save_file="data/buffer_data/replay_buffer.csv"):
+		save_file="data/buffer_data/replay_buffer.pickle"):
 		self.save_file = save_file
+		self.sample_size = sample_size
+
 		if load_buffer == True:
-			buffer_df = pd.read_csv(self.save_file)
-			self.buffer = buffer_df.to_dict()
+			with open(self.save_file, 'rb') as f:
+				self.buffer = pickle.load(f)
 		else:
 			self.buffer = OrderedDict()
 			self.buffer['state'] = []
@@ -136,18 +103,18 @@ class Buffer(object):
 
 	def save(self):
 		"""Write buffer to CSV file"""
-		buffer_df = pd.DataFrame.from_dict(self.buffer)
-		buffer_df.to_csv(self.save_file, index=False, header=True)
+		with open(self.save_file, 'wb') as f:
+			pickle.dump(self.buffer, f, protocol=pickle.HIGHEST_PROTOCOL)
 
 	def sample(self):
 		"""Return a sample (dictionary) from the buffer"""
 		buffer_size = len(self.buffer['reward'])
-		sample_indices = random.choice(range(buffer_size))
+		sample_indices = random.sample(range(buffer_size), self.sample_size)
 		sample_dict = {
-			'state': self.buffer['state'][sample_indices],
-			'next_state': self.buffer['next_state'][sample_indices],
-			'reward': self.buffer['reward'][sample_indices],
-			'is_terminal': self.buffer['is_terminal'][sample_indices]
+			'state': np.array(self.buffer['state'])[sample_indices],
+			'next_state': np.array(self.buffer['next_state'])[sample_indices],
+			'reward': np.array(self.buffer['reward'])[sample_indices],
+			'is_terminal': np.array(self.buffer['is_terminal'])[sample_indices]
 		}
 		return sample_dict
 
@@ -156,9 +123,9 @@ class Buffer(object):
 class CrawlerAgent(object):
 
 	def __init__(self, url_list, reward_urls, word_list,
-		cycle_freq, num_steps, print_freq, gamma=0.99,
-		learning_rate=0.001,
-		train_save_location="results/dqn_crawler_train_results.csv",
+		cycle_freq, num_steps, print_freq, gamma=0.99, load_buffer=False,
+		learning_rate=0.01,
+		train_save_location="results/dqn_crawler_train_results_new.csv",
 		tf_model_folder="models/linear_model"):
 
 		# Set up state space and training parameters
@@ -179,7 +146,7 @@ class CrawlerAgent(object):
 		self.reward = tf.placeholder(dtype=tf.float32)
 		self.is_terminal = tf.placeholder(dtype=tf.float32)
 		self.build_target_net()
-		self.replay_buffer = Buffer()
+		self.replay_buffer = Buffer(load_buffer=load_buffer)
 
 		# Set up train results dict
 		self.train_results_dict = OrderedDict()
@@ -216,7 +183,11 @@ class CrawlerAgent(object):
 ##-------- RL Functions -------------------------------------
 def get_reward(url, company_urls):
 	"""Return 1 if company URL, 0 otherwise"""
-	return 1 if url in company_urls else 0
+	if any(c in url for c in company_urls):
+		reward = 1
+	else:
+		reward = 0
+	return reward
 
 def epsilon_greedy(epsilon, action_list):
 	"""Returns index of chosen action"""
@@ -231,10 +202,12 @@ def epsilon_greedy(epsilon, action_list):
 def main():
 	##-------------------- Parameters
 	cycle_freq = 50
-	num_steps = 50000  # no. crawled pages before stopping
+	num_steps = 10000  # no. crawled pages before stopping
 	print_freq = 1000
-	buffer_save_freq = 1000
 	epsilon = 0.05
+	buffer_save_freq = 1000
+	load_buffer = False
+	learning_rate = 0.1
 
 	##-------------------- Read in data
 	# Company i.e. reward URLs
@@ -242,6 +215,7 @@ def main():
 	companies_df = companies_df[companies_df['vert_code'] <= 69203]
 	companies_df = companies_df[companies_df['vert_code'] >= 69101]
 	reward_urls = companies_df['url'].tolist()
+	reward_urls = [l.replace("http://", "").replace("https://", "") for l in reward_urls]
 
 	# Rest of URLs to form the state space
 	first_hop_df = pd.read_csv('data/first_hop_links.csv', names = ["url"])
@@ -251,15 +225,16 @@ def main():
 	del companies_df, first_hop_df, second_hop_df
 
 	# Remove any pages that obviously won't have hyperlinks/rewards
-	url_list = [l for l in url_list if l[-4:] not in [".png", ".jpg", ".pdf", ".txt"]]
+	url_list = [l.replace("http://", "").replace("https://", "") for l in url_list if l[-4:] not in [".png", ".jpg", ".pdf", ".txt"]]
 
-	# Load vert words
-	words_list = load_csv_to_list('../data/vert_desc_words.csv')
-	# word_list = words.words() + names.words()
-	words_list = [w for w in words_list if w not in stops]
-	words_list = [w for w in words_list if len(w) > 1]
+	# Load list of keywords
+	with open('data/word_feature_list.csv') as f:  # relevant english words
+		reader = csv.reader(f)
+		words_list = list(reader)
+	words_list = [w[0] for w in words_list]
+	words_list = [w for w in words_list if w not in stops if len(w) > 1]
 
-	##------------------- Initialize and train Crawler Agent
+	##------------------- Initialize Crawler Agent and TF graph/session
 	step_count = 0
 	pages_crawled = 0
 	total_reward = 0
@@ -267,18 +242,16 @@ def main():
 	reward_pages = []
 	recent_urls = []
 
-	##-----------------------
-	# with tf.device('/cpu:0'):
 	tf.reset_default_graph()
 	agent = CrawlerAgent(url_list, reward_urls, words_list, cycle_freq=cycle_freq, 
-		num_steps=num_steps, print_freq=print_freq)
-
+		num_steps=num_steps, print_freq=print_freq, load_buffer=load_buffer, learning_rate=learning_rate)
 	init = tf.global_variables_initializer()
 	saver = tf.train.Saver()
 
 	with tf.Session() as sess:
 		sess.run(init)
 
+		##------------------ Run and train crawler agent -----------------------
 		while step_count < agent.num_steps:
 			url = random.choice([l for l in agent.url_list if l not in recent_urls])  # don't start at recent URL
 
@@ -327,9 +300,8 @@ def main():
 				agent.replay_buffer.update(state, next_state_array, r, is_terminal)
 				if step_count % buffer_save_freq == 0:
 					agent.replay_buffer.save()
-				# input("Enter to continue...")
 
-				## Print progress
+				# Print progress
 				# For debugging i.e. check the value function actually changes
 				if step_count == 1:
 					start_url = url
@@ -347,10 +319,11 @@ def main():
 					break
 				a = epsilon_greedy(epsilon, v_next)
 				url = link_list[a]
+		##-------------------------------------------------------------------------
 
 		print("\nCrawled {} pages, total reward = {}, # terminal states = {}"\
 			.format(pages_crawled, total_reward, terminal_states))
-		# agent.save_train_results()
+		agent.save_train_results()
 		agent.save_tf_model(sess, saver)
 
 		v = sess.run(agent.v, feed_dict={agent.state: start_state.reshape(1, -1)})
@@ -358,8 +331,6 @@ def main():
 
 
 	sess.close()
-
-
 
 
 

@@ -70,7 +70,11 @@ def get_all_links(url_list):
 ##-------- RL Functions -------------------------------------
 def get_reward(url, company_urls):
 	"""Return 1 if company URL, 0 otherwise"""
-	return 1 if url in company_urls else 0
+	if any(c in url for c in company_urls):
+		reward = 1
+	else:
+		reward = 0
+	return reward
 
 
 ##-----------------------------------------------------------
@@ -82,6 +86,7 @@ def main():
 	companies_df = companies_df[companies_df['vert_code'] <= 69203]
 	companies_df = companies_df[companies_df['vert_code'] >= 69101]
 	reward_urls = companies_df['url'].tolist()
+	reward_urls = [l.replace("http://", "").replace("https://", "") for l in reward_urls]
 
 	# Rest of URLs to form the state space
 	first_hop_df = pd.read_csv('data/first_hop_links.csv', names = ["url"])
@@ -91,8 +96,7 @@ def main():
 	del companies_df, first_hop_df, second_hop_df
 
 	# Remove any pages that obviously won't have hyperlinks/rewards
-	url_list = [l for l in url_list if l[-4:] not in [".png", ".jpg", ".pdf", ".txt"]]
-
+	url_list = [l.replace("http://", "").replace("https://", "") for l in url_list if l[-4:] not in [".png", ".jpg", ".pdf", ".txt"]]
 
 	##-------------------- Random crawling
 	# Results dict for plotting
@@ -102,21 +106,19 @@ def main():
 	results_dict['terminal_states'] = [] 
 
 	# Parameters
-	cycle_freq = 5
-	number_crawls = 30000
+	cycle_freq = 50
+	number_crawls = 10000
 	print_freq = 1000
 
 	# To store
 	pages_crawled = 0
 	total_reward = 0
 	terminal_states = 0
-	errors = 0
-	all_crawled_pages = []
 	count_idx = 0
+	recent_urls = []
 
 	while count_idx < number_crawls:
-		start_url_list = [l for l in url_list if l not in all_crawled_pages]  # don't start at an old URL
-		url = random.choice(start_url_list)
+		url = random.choice([l for l in url_list if l not in recent_urls])  # don't start at recent URL
 
 		while count_idx < number_crawls:
 			count_idx += 1
@@ -124,16 +126,17 @@ def main():
 			# Track progress
 			progress_bar(count_idx, number_crawls)
 			if count_idx % print_freq == 0:
-				print("\nCrawled {} pages, total reward = {}, # terminal states = {}, errors = {}"\
-				.format(pages_crawled, total_reward, terminal_states, errors))
+				print("\nCrawled {} pages, total reward = {}, # terminal states = {}"\
+				.format(pages_crawled, total_reward, terminal_states))
 
 			results_dict['pages_crawled'].append(pages_crawled)
 			results_dict['total_reward'].append(total_reward)
 			results_dict['terminal_states'].append(terminal_states)
 
 			# Keep track of recent URLs (to avoid loops)
-			all_crawled_pages.append(url)
-			recent_urls = all_crawled_pages[-cycle_freq:]
+			recent_urls.append(url)
+			if len(recent_urls) > cycle_freq:
+				recent_urls = recent_urls[-cycle_freq:]
 
 			# Get rewards
 			r = get_reward(url, reward_urls)
@@ -149,8 +152,8 @@ def main():
 			url = random.choice(link_list)
 
 
-	print("\nCrawled {} pages, total reward = {}, # terminal states = {}, errors = {}"\
-		.format(pages_crawled, total_reward, terminal_states, errors))
+	print("\nCrawled {} pages, total reward = {}, # terminal states = {}"\
+		.format(pages_crawled, total_reward, terminal_states))
 
 	##----------------- Save results
 	results_df = pd.DataFrame.from_dict(results_dict)

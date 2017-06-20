@@ -75,7 +75,7 @@ def main():
 	second_hop_links = [l.replace("http://", "") for l in second_hop_links]
 	second_hop_links = [l.replace("https://", "") for l in second_hop_links]
 	second_hop_df = pd.DataFrame.from_dict({"url": second_hop_links})
-	second_hop_df.to_csv("data/second_hop_links.csv", index=False, header=False)
+	# second_hop_df.to_csv("data/second_hop_links.csv", index=False, header=False)
 
 	## Third hop links
 	third_hop_links = get_all_links(second_hop_links)
