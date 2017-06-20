@@ -29,8 +29,6 @@ def progress_bar(value, endvalue, bar_length=20):
     sys.stdout.write("\rPercent complete: [{0}] {1}%".format(arrow + spaces, int(round(percent * 100))))
     sys.stdout.flush()
 
-##-----------------------------------------------------------
-##-------- Get links from LMDB data functions ---------------
 def get_list_of_links(url, s=storage):
 	"""Use the LMDB database to get a list of links for a given URL"""
 	try:
@@ -40,8 +38,7 @@ def get_list_of_links(url, s=storage):
 	if page is None:
 		return []
 	try:
-		link_list = [l.url for l in page.links if l.url[:4] == "http"]
-		link_list = [l.replace("http://", "").replace("https://", "") for l in link_list]
+		link_list = [l.url.replace("http://", "").replace("https://", "") for l in page.links if l.url[:4] == "http"]
 	except UnicodeDecodeError:
 		return []
 	return link_list
@@ -222,10 +219,14 @@ def main():
 	url_list = reward_urls + first_hop_df['url'].tolist()
 	second_hop_df = pd.read_csv('data/second_hop_links.csv', names = ["url"])
 	url_list = url_list + second_hop_df['url'].tolist()
-	del companies_df, first_hop_df, second_hop_df
+	third_hop_df = pd.read_csv('data/third_hop_links.csv', names = ["url"])
+	url_list = url_list + third_hop_df['url'].tolist()
+	url_list = list(set(url_list))
+	del companies_df, first_hop_df, second_hop_df, third_hop_df
 
 	# Remove any pages that obviously won't have hyperlinks/rewards
-	url_list = [l.replace("http://", "").replace("https://", "") for l in url_list if l[-4:] not in [".png", ".jpg", ".pdf", ".txt"]]
+	url_list = [l.replace("http://", "").replace("https://", "") for l in url_list if type(l) is str if l[-4:] not in [".png", ".jpg", ".pdf", ".txt"]]
+	url_set = set(url_list)
 
 	# Load list of keywords
 	with open('data/word_feature_list.csv') as f:  # relevant english words
@@ -253,7 +254,7 @@ def main():
 
 		##------------------ Run and train crawler agent -----------------------
 		while step_count < agent.num_steps:
-			url = random.choice([l for l in agent.url_list if l not in recent_urls])  # don't start at recent URL
+			url = random.choice(list(url_set - set(recent_urls)))  # don't start at recent URL
 
 			while step_count < agent.num_steps:
 				step_count += 1
@@ -274,7 +275,8 @@ def main():
 				# Feature representation of current page (state) and links in page
 				state = np.array(build_url_feature_vector(agent.A, agent.words, url)).reshape(1, -1)
 				link_list = get_list_of_links(url)
-				link_list = [l for l in link_list if l in agent.url_list if l not in recent_urls]
+				link_list = set(link_list).intersection(url_set)
+				link_list = list(link_list - set(recent_urls))
 
 				if len(link_list) == 0:
 					terminal_states += 1
@@ -297,9 +299,9 @@ def main():
 				agent.train_results_dict['nn_loss'].append(float(loss))
 
 				# # Update buffer
-				agent.replay_buffer.update(state, next_state_array, r, is_terminal)
-				if step_count % buffer_save_freq == 0:
-					agent.replay_buffer.save()
+				# agent.replay_buffer.update(state, next_state_array, r, is_terminal)
+				# if step_count % buffer_save_freq == 0:
+				# 	agent.replay_buffer.save()
 
 				# Print progress
 				# For debugging i.e. check the value function actually changes
@@ -328,7 +330,6 @@ def main():
 
 		v = sess.run(agent.v, feed_dict={agent.state: start_state.reshape(1, -1)})
 		print("{} now has value {}".format(start_url, float(v)))
-
 
 	sess.close()
 

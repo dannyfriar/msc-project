@@ -42,9 +42,7 @@ def get_list_of_links(url, s=storage):
 	if page is None:
 		return []
 	try:
-		link_list = [l.url for l in page.links if l.url[:4] == "http"]
-		link_list = [l.replace("http://", "") for l in link_list]
-		link_list = [l.replace("https://", "") for l in link_list]
+		link_list = [l.url.replace("http://", "").replace("https://", "") for l in page.links if l.url[:4] == "http"]
 	except UnicodeDecodeError:
 		return []
 	return link_list
@@ -93,10 +91,14 @@ def main():
 	url_list = reward_urls + first_hop_df['url'].tolist()
 	second_hop_df = pd.read_csv('data/second_hop_links.csv', names = ["url"])
 	url_list = url_list + second_hop_df['url'].tolist()
-	del companies_df, first_hop_df, second_hop_df
+	third_hop_df = pd.read_csv('data/third_hop_links.csv', names = ["url"])
+	url_list = url_list + third_hop_df['url'].tolist()
+	url_list = list(set(url_list))
+	del companies_df, first_hop_df, second_hop_df, third_hop_df
 
 	# Remove any pages that obviously won't have hyperlinks/rewards
-	url_list = [l.replace("http://", "").replace("https://", "") for l in url_list if l[-4:] not in [".png", ".jpg", ".pdf", ".txt"]]
+	url_list = [l.replace("http://", "").replace("https://", "") for l in url_list if type(l) is str if l[-4:] not in [".png", ".jpg", ".pdf", ".txt"]]
+	url_set = set(url_list)
 
 	##-------------------- Random crawling
 	# Results dict for plotting
@@ -118,7 +120,7 @@ def main():
 	recent_urls = []
 
 	while count_idx < number_crawls:
-		url = random.choice([l for l in url_list if l not in recent_urls])  # don't start at recent URL
+		url = random.choice(list(url_set - set(recent_urls)))  # don't start at recent URL
 
 		while count_idx < number_crawls:
 			count_idx += 1
@@ -145,7 +147,8 @@ def main():
 
 			# Move to next URL
 			link_list = get_list_of_links(url)
-			link_list = [l for l in link_list if l in url_list if l not in recent_urls]
+			link_list = set(link_list).intersection(url_set)
+			link_list = list(link_list - set(recent_urls))
 			if len(link_list) == 0:
 				terminal_states += 1
 				break
