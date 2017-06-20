@@ -199,7 +199,7 @@ def epsilon_greedy(epsilon, action_list):
 def main():
 	##-------------------- Parameters
 	cycle_freq = 50
-	num_steps = 10000  # no. crawled pages before stopping
+	num_steps = 50000  # no. crawled pages before stopping
 	print_freq = 1000
 	epsilon = 0.05
 	buffer_save_freq = 1000
