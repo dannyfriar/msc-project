@@ -117,7 +117,7 @@ class Buffer(object):
 	def __init__(self, load_buffer=False, sample_size=50,
 		save_file="data/buffer_data/replay_buffer.csv"):
 		self.save_file = save_file
-		if load_buffer = True:
+		if load_buffer == True:
 			buffer_df = pd.read_csv(self.save_file)
 			self.buffer = buffer_df.to_dict()
 		else:
@@ -144,9 +144,9 @@ class Buffer(object):
 		buffer_size = len(self.buffer['reward'])
 		sample_indices = random.choice(range(buffer_size))
 		sample_dict = {
-			'state': self.buffer['state'][sample_indices]
-			'next_state': self.buffer['next_state'][sample_indices]
-			'reward': self.buffer['reward'][sample_indices]
+			'state': self.buffer['state'][sample_indices],
+			'next_state': self.buffer['next_state'][sample_indices],
+			'reward': self.buffer['reward'][sample_indices],
 			'is_terminal': self.buffer['is_terminal'][sample_indices]
 		}
 		return sample_dict
@@ -231,7 +231,7 @@ def epsilon_greedy(epsilon, action_list):
 def main():
 	##-------------------- Parameters
 	cycle_freq = 50
-	num_steps = 30000  # no. crawled pages before stopping
+	num_steps = 50000  # no. crawled pages before stopping
 	print_freq = 1000
 	buffer_save_freq = 1000
 	epsilon = 0.05
@@ -324,9 +324,9 @@ def main():
 				agent.train_results_dict['nn_loss'].append(float(loss))
 
 				# # Update buffer
-				# agent.replay_buffer.update(state, next_state_array, r, is_terminal)
-				# if step_count % buffer_save_freq == 0:
-					# agent.replay_buffer.save()
+				agent.replay_buffer.update(state, next_state_array, r, is_terminal)
+				if step_count % buffer_save_freq == 0:
+					agent.replay_buffer.save()
 				# input("Enter to continue...")
 
 				## Print progress
@@ -345,17 +345,12 @@ def main():
 				# Choose next URL (and check for looping)
 				if is_terminal == 1:
 					break
-				# elif step_count >= 100 and agent.train_results_dict['terminal_states'][step_count-50] == terminal_states:
-				# 	print("\nBREAKING CYCLE!!!!")
-				# 	print(agent.train_results_dict['terminal_states'][step_count-50])
-				# 	print(terminal_states)
-				# 	break
 				a = epsilon_greedy(epsilon, v_next)
 				url = link_list[a]
 
 		print("\nCrawled {} pages, total reward = {}, # terminal states = {}"\
 			.format(pages_crawled, total_reward, terminal_states))
-		agent.save_train_results()
+		# agent.save_train_results()
 		agent.save_tf_model(sess, saver)
 
 		v = sess.run(agent.v, feed_dict={agent.state: start_state.reshape(1, -1)})
