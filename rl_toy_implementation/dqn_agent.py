@@ -205,7 +205,7 @@ def main():
 	buffer_save_freq = 1000
 	load_buffer = False
 	learning_rate = 0.001
-	reload_model = False
+	reload_model = True
 
 	##-------------------- Read in data
 	# Company i.e. reward URLs
