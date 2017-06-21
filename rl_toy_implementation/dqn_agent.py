@@ -201,9 +201,10 @@ def main():
 	num_steps = 20000  # no. crawled pages before stopping
 	print_freq = 1000
 	epsilon = 0.05
+	gamma = 0.99
 	buffer_save_freq = 1000
 	load_buffer = False
-	learning_rate = 0.1
+	learning_rate = 0.001
 	reload_model = False
 
 	##-------------------- Read in data
@@ -250,7 +251,8 @@ def main():
 
 	tf.reset_default_graph()
 	agent = CrawlerAgent(url_list, reward_urls, words_list, cycle_freq=cycle_freq, 
-		num_steps=num_steps, print_freq=print_freq, load_buffer=load_buffer, learning_rate=learning_rate)
+		num_steps=num_steps, print_freq=print_freq, gamma=gamma, 
+		load_buffer=load_buffer, learning_rate=learning_rate)
 	init = tf.global_variables_initializer()
 	saver = tf.train.Saver()
 

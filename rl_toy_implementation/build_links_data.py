@@ -99,6 +99,8 @@ def main():
 
 	## Third hop links
 	print("Getting fourth hop links....")
+	# third_hop_links = list(set(third_hop_links))
+	print(len(third_hop_links))
 	fourth_hop_links = get_all_links(third_hop_links)
 	fourth_hop_links = [l for l in fourth_hop_links if len(l)>0 if l[0] != "\""]
 	fourth_hop_links = list(set(fourth_hop_links) - url_list)
