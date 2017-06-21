@@ -116,6 +116,21 @@ class Buffer(object):
 		return sample_dict
 
 ##-----------------------------------------------------------
+##-------- RL Functions -------------------------------------
+def get_reward(url, A_company, company_urls):
+	"""Return 1 if company URL, 0 otherwise"""
+	if sum(check_strings(A_company, company_urls, url)) > 0:
+		return 1
+	return 0
+
+def epsilon_greedy(epsilon, action_list):
+	"""Returns index of chosen action"""
+	if random.uniform(0, 1) > epsilon:
+		return np.argmax(action_list)
+	else:
+		return random.randint(0, len(action_list)-1)
+
+##-----------------------------------------------------------
 ##-------- DQN Agent ----------------------------------------
 class CrawlerAgent(object):
 
@@ -177,24 +192,6 @@ class CrawlerAgent(object):
 
 
 ##-----------------------------------------------------------
-##-------- RL Functions -------------------------------------
-def get_reward(url, company_urls):
-	"""Return 1 if company URL, 0 otherwise"""
-	if any(c in url for c in company_urls):
-		reward = 1
-	else:
-		reward = 0
-	return reward
-
-def epsilon_greedy(epsilon, action_list):
-	"""Returns index of chosen action"""
-	if random.uniform(0, 1) > epsilon:
-		return np.argmax(action_list)
-	else:
-		return random.randint(0, len(action_list)-1)
-
-
-##-----------------------------------------------------------
 ##-----------------------------------------------------------
 def main():
 	##-------------------- Parameters
@@ -215,6 +212,8 @@ def main():
 	companies_df = companies_df[companies_df['vert_code'] >= 69101]
 	reward_urls = companies_df['url'].tolist()
 	reward_urls = [l.replace("http://", "").replace("https://", "") for l in reward_urls]
+	A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
+	A_company.make_automaton()
 
 	# Rest of URLs to form the state space
 	first_hop_df = pd.read_csv('data/first_hop_links.csv', names = ["url"])
@@ -277,23 +276,27 @@ def main():
 					if len(recent_urls) > agent.cycle_freq:
 						recent_urls = recent_urls[-agent.cycle_freq:]
 
-					# Get rewards
-					r = get_reward(url, agent.reward_urls)
-					pages_crawled += 1
-					total_reward += r
-					if r > 0:
-						reward_pages.append(url)
-						reward_domains.append(url.split("/", 1)[0])
-						if len(reward_domains) > reward_dom_freq:
-							reward_domains = reward_domains[-reward_dom_freq:]
-					agent.train_results_dict['total_reward'].append(total_reward)
-
 					# Feature representation of current page (state) and links in page
 					state = np.array(build_url_feature_vector(agent.A, agent.words, url)).reshape(1, -1)
 					link_list = get_list_of_links(url)
 					link_list = set(link_list).intersection(url_set)
 					link_list = list(link_list - set(recent_urls))
 
+					# Get rewards
+					r = get_reward(url, A_company, reward_urls)
+					pages_crawled += 1
+					total_reward += r
+
+					# Remove domains for which we've recently got rewards
+					if r > 0:
+						reward_pages.append(url)
+						reward_domains.append(url.split("/", 1)[0])
+						if len(reward_domains) > reward_dom_freq:
+							reward_domains = reward_domains[-reward_dom_freq:]
+					link_list = [l for l in link_list if sum(check_strings(A_reward, reward_domains, l))==0]
+					agent.train_results_dict['total_reward'].append(total_reward)
+
+					# Check if terminal state
 					if len(link_list) == 0:
 						terminal_states += 1
 						is_terminal = 1

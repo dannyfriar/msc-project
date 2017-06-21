@@ -30,6 +30,24 @@ def load_csv_to_list(file_name):
 		reader = csv.reader(f)
 		return list(reader)[0]
 
+def init_automaton(string_list):
+	"""Make Aho-Corasick automaton from a list of strings"""
+	A = ahocorasick.Automaton()
+	for idx, s in enumerate(string_list):
+		A.add_word(s, (idx, s))
+	return A
+
+def check_strings(A, search_list, string_to_search):
+	"""Use Aho Corasick algorithm to produce boolean list indicating
+	prescence of strings within a longer string"""
+	index_list = []
+	for item in A.iter(string_to_search):
+		index_list.append(item[1][0])
+
+	output_list = np.array([0] * len(search_list))
+	output_list[index_list] = 1
+	return output_list.tolist()
+
 
 ##-----------------------------------------------------------
 ##-------- Get links from LMDB data functions ---------------
@@ -66,13 +84,16 @@ def get_all_links(url_list):
 
 ##-----------------------------------------------------------
 ##-------- RL Functions -------------------------------------
-def get_reward(url, company_urls):
+def get_reward(url, A_company, company_urls):
 	"""Return 1 if company URL, 0 otherwise"""
-	if any(c in url for c in company_urls):
-		reward = 1
-	else:
-		reward = 0
-	return reward
+	# if any(c in url for c in company_urls):
+	# 	reward = 1
+	# else:
+	# 	reward = 0
+	# return reward
+	if sum(check_strings(A_company, company_urls, url)) > 0:
+		return 1
+	return 0
 
 
 ##-----------------------------------------------------------
@@ -85,6 +106,8 @@ def main():
 	companies_df = companies_df[companies_df['vert_code'] >= 69101]
 	reward_urls = companies_df['url'].tolist()
 	reward_urls = [l.replace("http://", "").replace("https://", "") for l in reward_urls]
+	A_company = init_automaton(reward_urls)  # Aho-corasick automaton
+	A_company.make_automaton()
 
 	# Rest of URLs to form the state space
 	first_hop_df = pd.read_csv('data/first_hop_links.csv', names = ["url"])
@@ -143,8 +166,13 @@ def main():
 			if len(recent_urls) > cycle_freq:
 				recent_urls = recent_urls[-cycle_freq:]
 
+			# List of next URLs
+			link_list = get_list_of_links(url)
+			link_list = set(link_list).intersection(url_set)
+			link_list = list(link_list - set(recent_urls))
+
 			# Get rewards
-			r = get_reward(url, reward_urls)
+			r = get_reward(url, A_company, reward_urls)
 			pages_crawled += 1
 			total_reward += r
 			if r > 0:
@@ -153,10 +181,11 @@ def main():
 				if len(reward_domains) > reward_dom_freq:
 					reward_domains = reward_domains[-reward_dom_freq:]
 
-			# Move to next URL
-			link_list = get_list_of_links(url)
-			link_list = set(link_list).intersection(url_set)
-			link_list = list(link_list - set(recent_urls))
+				A_reward = init_automaton(reward_domains)
+				A_reward.make_automaton()
+				link_list = [l for l in link_list if sum(check_strings(A_reward, reward_domains, l))==0]
+
+			# Choose next URL from list
 			if len(link_list) == 0:
 				terminal_states += 1
 				break
