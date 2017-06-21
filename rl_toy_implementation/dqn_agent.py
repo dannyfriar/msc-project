@@ -73,6 +73,22 @@ def build_url_feature_vector(A, search_list, string_to_search):
 
 
 ##-----------------------------------------------------------
+##-------- RL Functions -------------------------------------
+def get_reward(url, A_company, company_urls):
+	"""Return 1 if company URL, 0 otherwise"""
+	if sum(check_strings(A_company, company_urls, url)) > 0:
+		return 1
+	return 0
+
+def epsilon_greedy(epsilon, action_list):
+	"""Returns index of chosen action"""
+	if random.uniform(0, 1) > epsilon:
+		return np.argmax(action_list)
+	else:
+		return random.randint(0, len(action_list)-1)
+
+
+##-----------------------------------------------------------
 ##-------- Buffer -------------------------------------------
 class Buffer(object):
 
@@ -114,21 +130,6 @@ class Buffer(object):
 			'is_terminal': np.array(self.buffer['is_terminal'])[sample_indices]
 		}
 		return sample_dict
-
-##-----------------------------------------------------------
-##-------- RL Functions -------------------------------------
-def get_reward(url, A_company, company_urls):
-	"""Return 1 if company URL, 0 otherwise"""
-	if sum(check_strings(A_company, company_urls, url)) > 0:
-		return 1
-	return 0
-
-def epsilon_greedy(epsilon, action_list):
-	"""Returns index of chosen action"""
-	if random.uniform(0, 1) > epsilon:
-		return np.argmax(action_list)
-	else:
-		return random.randint(0, len(action_list)-1)
 
 ##-----------------------------------------------------------
 ##-------- DQN Agent ----------------------------------------
@@ -244,6 +245,8 @@ def main():
 	reward_pages = []
 	recent_urls = []
 	reward_domains = []
+	A_reward = init_automaton(reward_domains)  # initialize domain automaton
+	A_reward.make_automaton()
 
 	tf.reset_default_graph()
 	agent = CrawlerAgent(url_list, reward_urls, words_list, cycle_freq=cycle_freq, 
@@ -293,6 +296,9 @@ def main():
 						reward_domains.append(url.split("/", 1)[0])
 						if len(reward_domains) > reward_dom_freq:
 							reward_domains = reward_domains[-reward_dom_freq:]
+						A_reward = init_automaton(reward_domains)
+						A_reward.make_automaton()
+
 					link_list = [l for l in link_list if sum(check_strings(A_reward, reward_domains, l))==0]
 					agent.train_results_dict['total_reward'].append(total_reward)
 

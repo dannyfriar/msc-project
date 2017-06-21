@@ -144,6 +144,8 @@ def main():
 	recent_urls = []
 	reward_pages = []
 	reward_domains = []
+	A_reward = init_automaton(reward_domains)
+	A_reward.make_automaton()
 
 	while count_idx < number_crawls:
 		url = random.choice(list(url_set - set(recent_urls)))  # don't start at recent URL
