@@ -204,7 +204,7 @@ def main():
 	epsilon = 0.05
 	buffer_save_freq = 1000
 	load_buffer = False
-	learning_rate = 0.1
+	learning_rate = 0.001
 
 	##-------------------- Read in data
 	# Company i.e. reward URLs

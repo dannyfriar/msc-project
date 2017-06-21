@@ -99,7 +99,7 @@ def main():
 	# Remove any pages that obviously won't have hyperlinks/rewards
 	url_list = [l.replace("http://", "").replace("https://", "") for l in url_list if type(l) is str if l[-4:] not in [".png", ".jpg", ".pdf", ".txt"]]
 	url_set = set(url_list)
-
+	
 	##-------------------- Random crawling
 	# Results dict for plotting
 	results_dict = OrderedDict()
