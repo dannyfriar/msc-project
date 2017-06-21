@@ -204,8 +204,8 @@ def main():
 	epsilon = 0.05
 	buffer_save_freq = 1000
 	load_buffer = False
-	learning_rate = 0.001
-	reload_model = True
+	learning_rate = 0.1
+	reload_model = False
 
 	##-------------------- Read in data
 	# Company i.e. reward URLs
@@ -336,8 +336,11 @@ def main():
 
 			print("\nCrawled {} pages, total reward = {}, # terminal states = {}"\
 				.format(pages_crawled, total_reward, terminal_states))
-			agent.save_train_results()
-			agent.save_tf_model(sess, saver)
+			# agent.save_train_results()
+			# agent.save_tf_model(sess, saver)
+
+			df = pd.DataFrame(reward_pages, columns=["rewards_pages"])
+			df.to_csv('results/reward_pages.csv', index=False)
 
 			v = sess.run(agent.v, feed_dict={agent.state: start_state.reshape(1, -1)})
 			print("{} now has value {}".format(start_url, float(v)))
