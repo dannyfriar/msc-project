@@ -4,9 +4,9 @@ library(grid)
 library(gridExtra)
 
 # Read random train results data and plot
-random_results <- read.csv("results/results_tues_20/random_crawler_train_results.csv")
+random_results <- read.csv("results/results_tues_20/random_crawler_results_50k.csv")
 random_results$type <- "Random Crawler"
-dqn_results <- read.csv("results/results_tues_20/dqn_crawler_train_results.csv")
+dqn_results <- read.csv("results/results_tues_20/dqn_crawler_train_results_50k.csv")
 dqn_results$type <- "DQN Agent"
 
 df <- rbind(random_results, subset(dqn_results, select=-c(nn_loss)))
@@ -52,6 +52,16 @@ grid_arrange_shared_legend <- function(..., nrow = 1, ncol = length(list(...)), 
 
 # Combine
 g <- grid_arrange_shared_legend(g_reward, g_terminal, nrow = 1, ncol = 2)
-print(g)
+g
 ggsave(filename="../figures/our_work/dqn_vs_random.png", plot=g, width = 15, height = 10, units = "cm")
+
+
+## Plot the gradient
+df$obs <- 1:nrow(df)
+df <- df[df$obs %% 500 == 0, ]
+df$slope <- c(0, diff(df$total_reward))
+df[df$slope<0, ]$slope <- 0
+g_slope <- ggplot(data=df, aes(x=pages_crawled, y=slope, color=type)) + geom_line() + facet_grid(type~.)
+g_slope <- g_slope + theme(legend.position='top') + labs(x='Pages Crawled', y='Slope')
+g_slope
 
