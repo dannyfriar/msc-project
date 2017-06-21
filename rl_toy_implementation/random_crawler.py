@@ -109,7 +109,8 @@ def main():
 
 	# Parameters
 	cycle_freq = 50
-	number_crawls = 50000
+	reward_dom_freq = 5
+	number_crawls = 20000
 	print_freq = 1000
 
 	# To store
@@ -119,6 +120,7 @@ def main():
 	count_idx = 0
 	recent_urls = []
 	reward_pages = []
+	reward_domains = []
 
 	while count_idx < number_crawls:
 		url = random.choice(list(url_set - set(recent_urls)))  # don't start at recent URL
@@ -147,6 +149,9 @@ def main():
 			total_reward += r
 			if r > 0:
 				reward_pages.append(url)
+				reward_domains.append(url.split("/", 1)[0])
+				if len(reward_domains) > reward_dom_freq:
+					reward_domains = reward_domains[-reward_dom_freq:]
 
 			# Move to next URL
 			link_list = get_list_of_links(url)
@@ -162,8 +167,8 @@ def main():
 		.format(pages_crawled, total_reward, terminal_states))
 
 	##----------------- Save results
-	# results_df = pd.DataFrame.from_dict(results_dict)
-	# results_df.to_csv("results/random_crawler_results_new.csv", header=True, index=False)
+	results_df = pd.DataFrame.from_dict(results_dict)
+	results_df.to_csv("results/random_crawler_results_new.csv", header=True, index=False)
 
 	df = pd.DataFrame(reward_pages, columns=["rewards_pages"])
 	df.to_csv('results/random_reward_pages.csv', index=False)

@@ -199,7 +199,8 @@ def epsilon_greedy(epsilon, action_list):
 def main():
 	##-------------------- Parameters
 	cycle_freq = 50
-	num_steps = 50000  # no. crawled pages before stopping
+	reward_dom_freq = 5
+	num_steps = 20000  # no. crawled pages before stopping
 	print_freq = 1000
 	epsilon = 0.05
 	buffer_save_freq = 1000
@@ -243,6 +244,7 @@ def main():
 	terminal_states = 0
 	reward_pages = []
 	recent_urls = []
+	reward_domains = []
 
 	tf.reset_default_graph()
 	agent = CrawlerAgent(url_list, reward_urls, words_list, cycle_freq=cycle_freq, 
@@ -281,6 +283,9 @@ def main():
 					total_reward += r
 					if r > 0:
 						reward_pages.append(url)
+						reward_domains.append(url.split("/", 1)[0])
+						if len(reward_domains) > reward_dom_freq:
+							reward_domains = reward_domains[-reward_dom_freq:]
 					agent.train_results_dict['total_reward'].append(total_reward)
 
 					# Feature representation of current page (state) and links in page
@@ -336,8 +341,8 @@ def main():
 
 			print("\nCrawled {} pages, total reward = {}, # terminal states = {}"\
 				.format(pages_crawled, total_reward, terminal_states))
-			# agent.save_train_results()
-			# agent.save_tf_model(sess, saver)
+			agent.save_train_results()
+			agent.save_tf_model(sess, saver)
 
 			df = pd.DataFrame(reward_pages, columns=["rewards_pages"])
 			df.to_csv('results/reward_pages.csv', index=False)
