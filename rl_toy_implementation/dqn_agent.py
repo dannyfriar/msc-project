@@ -212,8 +212,8 @@ def main():
 	gamma = 0.5
 	buffer_save_freq = 1000
 	load_buffer = False
-	learning_rate = 0.01
-	reload_model = False
+	learning_rate = 0.5
+	reload_model = True
 
 	##-------------------- Read in data
 	# Company i.e. reward URLs
@@ -310,8 +310,8 @@ def main():
 					if r > 0:
 						reward_pages.append(url)
 						reward_domains.append(url.split("/", 1)[0])
-						if len(reward_domains) > reward_dom_freq:
-							reward_domains = reward_domains[-reward_dom_freq:]
+						# if len(reward_domains) > reward_dom_freq:
+							# reward_domains = reward_domains[-reward_dom_freq:]
 						A_reward = init_automaton(reward_domains)
 						A_reward.make_automaton()
 

@@ -180,8 +180,8 @@ def main():
 			if r > 0:
 				reward_pages.append(url)
 				reward_domains.append(url.split("/", 1)[0])
-				if len(reward_domains) > reward_dom_freq:
-					reward_domains = reward_domains[-reward_dom_freq:]
+				# if len(reward_domains) > reward_dom_freq:
+					# reward_domains = reward_domains[-reward_dom_freq:]
 
 				A_reward = init_automaton(reward_domains)
 				A_reward.make_automaton()
