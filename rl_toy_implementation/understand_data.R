@@ -42,3 +42,15 @@ length(intersect(all_hop_links, company_urls))
 save_links_df <- data.frame(url=all_hop_links)
 write.csv(save_links_df, "data/domains_list.csv", row.names=FALSE)
 
+## Internet domains i.e. .com etc
+domains <- sub('.*\\.', '', all_hop_links)
+domains_df <- data.table(data.frame(domains=domains))
+domains_df <- unique(domains_df[, count:=.N, by=domains])
+domains_df <- domains_df[order(-count)]
+domains_df <- domains_df[1:50]
+domains_df$ending <- paste0(".", as.character(domains_df$domains))
+domains_df <- subset(domains_df, select=c(ending))
+write.csv(domains_df, "data/domains_endings.csv", row.names=FALSE)
+
+
+
