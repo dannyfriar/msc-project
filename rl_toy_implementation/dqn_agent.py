@@ -224,7 +224,7 @@ def main():
 	companies_df = companies_df[companies_df['vert_code'] <= 69203]
 	companies_df = companies_df[companies_df['vert_code'] >= 69101]
 	reward_urls = companies_df['url'].tolist()
-	reward_urls = [l.replace("http://", "").replace("https://", "") for l in reward_urls]
+	reward_urls = [l.replace("http://", "").replace("https://", "").replace("www.", "") for l in reward_urls]
 	A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
 	A_company.make_automaton()
 
