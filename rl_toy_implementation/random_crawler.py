@@ -132,7 +132,7 @@ def main():
 
 	# Parameters
 	cycle_freq = 50
-	reward_dom_freq = 5
+	reward_dom_freq = 2
 	number_crawls = 20000
 	print_freq = 1000
 
@@ -143,7 +143,7 @@ def main():
 	count_idx = 0
 	recent_urls = []
 	reward_pages = []
-	reward_domains = []
+	reward_domains = ["thisisapretendrewarddomaintogetstarted123456789.com"]
 	A_reward = init_automaton(reward_domains)
 	A_reward.make_automaton()
 
@@ -168,7 +168,7 @@ def main():
 			if len(recent_urls) > cycle_freq:
 				recent_urls = recent_urls[-cycle_freq:]
 
-			# List of next URLs
+			# List of next possible URLs 
 			link_list = get_list_of_links(url)
 			link_list = set(link_list).intersection(url_set)
 			link_list = list(link_list - set(recent_urls))

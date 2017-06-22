@@ -197,7 +197,7 @@ class CrawlerAgent(object):
 def main():
 	##-------------------- Parameters
 	cycle_freq = 50
-	reward_dom_freq = 5
+	reward_dom_freq = 2
 	num_steps = 20000  # no. crawled pages before stopping
 	print_freq = 1000
 	epsilon = 0.05
@@ -205,7 +205,7 @@ def main():
 	buffer_save_freq = 1000
 	load_buffer = False
 	learning_rate = 0.1
-	reload_model = False
+	reload_model = True
 
 	##-------------------- Read in data
 	# Company i.e. reward URLs
@@ -245,7 +245,7 @@ def main():
 	terminal_states = 0
 	reward_pages = []
 	recent_urls = []
-	reward_domains = ["thisisapretendrewarddomaintogetstarted123456789"]
+	reward_domains = ["thisisapretendrewarddomaintogetstarted123456789.com"]
 	A_reward = init_automaton(reward_domains)  # initialize domain automaton
 	A_reward.make_automaton()
 
