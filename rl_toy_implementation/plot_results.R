@@ -73,7 +73,6 @@ g_slope
 feature_coefs <- data.table(read.csv("results/feature_coefficients.csv"))
 feature_coefs$coef_mag <- abs(feature_coefs$coef)
 feature_coefs <- feature_coefs[order(-coef_mag)]
-feature_coefs <- feature_coefs[!(words %in% c('batea', 'menzie'))]
 feature_coefs$words <- factor(feature_coefs$words, levels=feature_coefs$words)
 
 g_coef <- ggplot(data=feature_coefs[1:25], aes(x=words, y=coef, fill=words)) + geom_bar(stat='identity')
