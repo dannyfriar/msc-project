@@ -16,18 +16,20 @@ grep("/", company_urls) ## check they're all domains
 ## First, second and third hop links
 first_hop_df <- read.csv("data/first_hop_links.csv", header=FALSE)
 first_hop_links <- setdiff(first_hop_df$V1, company_urls)
-first_hop_links <- sub("/.*$","", first_hop_links)
 length(first_hop_links)
 
 second_hop_df <- read.csv("data/second_hop_links.csv", header=FALSE)
 second_hop_links <- setdiff(second_hop_df$V1, c(company_urls, first_hop_links))
-second_hop_links <- sub("/.*$","", second_hop_links)
 length(second_hop_links)
 
 third_hop_df <- read.csv("data/third_hop_links.csv", header=FALSE)
 third_hop_links <- setdiff(third_hop_df$V1, c(company_urls, first_hop_links, second_hop_links))
-third_hop_links <- sub("/.*$","", third_hop_links)
 length(third_hop_links)
+
+all_links <- c(first_hop_links, second_hop_links, third_hop_links, company_urls)
+first_hop_links <- sub("/.*$","", first_hop_links)
+second_hop_links <- sub("/.*$","", second_hop_links)
+third_hop_links <- sub("/.*$","", third_hop_links)
 
 all_hop_links <- c(first_hop_links, second_hop_links, third_hop_links)
 all_hop_links <- unique(all_hop_links)
@@ -51,6 +53,11 @@ domains_df <- domains_df[1:50]
 domains_df$ending <- paste0(".", as.character(domains_df$domains))
 domains_df <- subset(domains_df, select=c(ending))
 write.csv(domains_df, "data/domains_endings.csv", row.names=FALSE)
+
+## Links dataframe
+links_df <- data.frame(url=all_links)
+links_df$domain <- sub("/.*$","", links_df$url)
+write.csv(domains_df, "data/links_dataframe.csv", row.names=FALSE)
 
 
 

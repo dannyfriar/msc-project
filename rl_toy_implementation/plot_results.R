@@ -111,7 +111,7 @@ reward_urls <- read.csv("results/reward_pages.csv")
 reward_urls <- as.character(reward_urls$rewards_pages)
 length(unique(sub("/.*$","", reward_urls)))
 
-## Random crawler
+# Random crawler
 reward_urls <- read.csv("results/random_reward_pages.csv")
 reward_urls <- as.character(reward_urls$rewards_pages)
 length(unique(sub("/.*$","", reward_urls)))
