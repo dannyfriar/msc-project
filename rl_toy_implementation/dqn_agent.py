@@ -29,6 +29,13 @@ def progress_bar(value, endvalue, bar_length=20):
     sys.stdout.write("\rPercent complete: [{0}] {1}%".format(arrow + spaces, int(round(percent * 100))))
     sys.stdout.flush()
 
+def read_csv_to_list(filename):
+	with open(filename) as f:  # relevant english words
+		reader = csv.reader(f)
+		csv_list = list(reader)
+	csv_list = [c[0] for c in csv_list]
+	return(csv_list)
+
 def get_list_of_links(url, s=storage):
 	"""Use the LMDB database to get a list of links for a given URL"""
 	try:
@@ -174,11 +181,12 @@ class CrawlerAgent(object):
 		"""Build TF target network"""
 		# idx = tf.where(tf.not_equal(self.state, 0))
 		# sparse_state = tf.SparseTensor(idx, tf.gather_nd(self.state, idx), self.state.get_shape())
+		# self.v = sparse_tensor_dense_matmul(sparse_state, self.weights)
 		self.weights = tf.get_variable("weights", [len(self.words)+1, 1], 
 			initializer = tf.random_normal_initializer(mean=0.0, stddev=0.01))
-		# self.v = sparse_tensor_dense_matmul(sparse_state, self.weights)
-		self.v = tf.matmul(self.state, self.weights)
-		self.v_next = tf.matmul(self.next_state, self.weights)
+		self.bias = tf.get_variable('bias', [1], initializer = tf.constant_initializer(0.001))
+		self.v = tf.matmul(self.state, self.weights) + self.bias
+		self.v_next = tf.matmul(self.next_state, self.weights) + self.bias
 		self.target = self.reward + (1-self.is_terminal) * self.gamma * tf.stop_gradient(tf.reduce_max(self.v_next))
 		self.loss = tf.square(self.target - self.v)/2
 		self.opt = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.loss)
@@ -201,11 +209,11 @@ def main():
 	num_steps = 20000  # no. crawled pages before stopping
 	print_freq = 1000
 	epsilon = 0.05
-	gamma = 0.99
+	gamma = 0.5
 	buffer_save_freq = 1000
 	load_buffer = False
-	learning_rate = 0.001
-	reload_model = True
+	learning_rate = 0.01
+	reload_model = False
 
 	##-------------------- Read in data
 	# Company i.e. reward URLs
@@ -225,18 +233,17 @@ def main():
 	third_hop_df = pd.read_csv('data/third_hop_links.csv', names = ["url"])
 	url_list = url_list + third_hop_df['url'].tolist()
 	url_list = list(set(url_list))
-	del companies_df, first_hop_df, second_hop_df, third_hop_df
 
 	# Remove any pages that obviously won't have hyperlinks/rewards
 	url_list = [l.replace("http://", "").replace("https://", "") for l in url_list if type(l) is str if l[-4:] not in [".png", ".jpg", ".pdf", ".txt"]]
 	url_set = set(url_list)
 
 	# Load list of keywords
-	with open('data/word_feature_list.csv') as f:  # relevant english words
-		reader = csv.reader(f)
-		words_list = list(reader)
-	words_list = [w[0] for w in words_list]
+	words_list = read_csv_to_list('data/word_feature_list.csv')
 	words_list = [w for w in words_list if w not in stops if len(w) > 1]
+	url_endings_list = read_csv_to_list('data/domains_endings.csv')
+	words_list = words_list + url_endings_list
+	del companies_df, first_hop_df, second_hop_df, third_hop_df, url_endings_list
 
 	##------------------- Initialize Crawler Agent and TF graph/session
 	step_count = 0
@@ -267,6 +274,13 @@ def main():
 			weights_df = pd.DataFrame.from_dict({'words':words_list+['url_length'], 
 				'coef': agent.weights.eval().reshape(-1).tolist()})
 			weights_df.to_csv("results/feature_coefficients.csv", index=False, header=True)
+
+			# Test a URL
+			test_url = "www.tax.service.gov.uk"                                                                                              
+			# test_url = "www.panasonic.com"
+			s = np.array(build_url_feature_vector(agent.A, agent.words, test_url))
+			v = sess.run(agent.v, feed_dict={agent.state: s.reshape(1, -1)})
+			print("Value of URL {} is {}".format(test_url, float(v)))
 
 		else:
 			##------------------ Run and train crawler agent -----------------------
@@ -366,5 +380,4 @@ def main():
 
 
 if __name__ == "__main__":
-	# random.seed(1234)
 	main()
