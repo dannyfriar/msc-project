@@ -212,8 +212,8 @@ def main():
 	gamma = 0.5
 	buffer_save_freq = 1000
 	load_buffer = False
-	learning_rate = 0.5
-	reload_model = True
+	learning_rate = 0.01
+	reload_model = False
 
 	##-------------------- Read in data
 	# Company i.e. reward URLs

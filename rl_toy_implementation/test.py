@@ -19,6 +19,7 @@ storage = StorageEngine("/nvme/webcache/")
 from nltk.corpus import stopwords, words, names
 stops = stopwords.words("english")
 
+##-----------------------------
 def get_list_of_links(url, s=storage):
 	"""Use the LMDB database to get a list of links for a given URL"""
 	try:
@@ -37,11 +38,21 @@ def get_list_of_links(url, s=storage):
 
 
 
-url = "www.solislaw.co.uk"
-links = get_list_of_links(url)
-print(links)
-http_links = get_list_of_links("".join(["http://", url]))
-print(http_links)
+print()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
