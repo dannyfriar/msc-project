@@ -57,7 +57,7 @@ write.csv(domains_df, "data/domains_endings.csv", row.names=FALSE)
 ## Links dataframe
 links_df <- data.frame(url=all_links)
 links_df$domain <- sub("/.*$","", links_df$url)
-write.csv(domains_df, "data/links_dataframe.csv", row.names=FALSE)
+write.csv(links_df, "data/links_dataframe.csv", row.names=FALSE)
 
 
 
