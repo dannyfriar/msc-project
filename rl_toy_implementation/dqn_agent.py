@@ -50,6 +50,10 @@ def get_list_of_links(url, s=storage):
 		return []
 	return link_list
 
+def lookup_domain_name(links_df, domain_url):
+	"""Returns list of all URLs within domain web site (in database)"""
+	return links_df[links_df['domain'] == domain_url]['url'].tolist()
+
 
 ##-----------------------------------------------------------
 ##-------- String Functions ---------------------------------
@@ -205,7 +209,6 @@ class CrawlerAgent(object):
 def main():
 	##-------------------- Parameters
 	cycle_freq = 50
-	reward_dom_freq = 2
 	num_steps = 20000  # no. crawled pages before stopping
 	print_freq = 1000
 	epsilon = 0.05
@@ -213,7 +216,7 @@ def main():
 	buffer_save_freq = 1000
 	load_buffer = False
 	learning_rate = 0.01
-	reload_model = False
+	reload_model = True
 
 	##-------------------- Read in data
 	# Company i.e. reward URLs
@@ -225,16 +228,9 @@ def main():
 	A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
 	A_company.make_automaton()
 
-	# Rest of URLs to form the state space
-	first_hop_df = pd.read_csv('data/first_hop_links.csv', names = ["url"])
-	url_list = reward_urls + first_hop_df['url'].tolist()
-	second_hop_df = pd.read_csv('data/second_hop_links.csv', names = ["url"])
-	url_list = url_list + second_hop_df['url'].tolist()
-	third_hop_df = pd.read_csv('data/third_hop_links.csv', names = ["url"])
-	url_list = url_list + third_hop_df['url'].tolist()
-	url_list = list(set(url_list))
-
-	# Remove any pages that obviously won't have hyperlinks/rewards
+	# Rest of URLs to form the state space (remove any pages that obviously won't have hyperlinks/rewards)
+	links_df = pd.read_csv('data/links_dataframe.csv')
+	url_list = links_df['url'].tolist()
 	url_list = [l.replace("http://", "").replace("https://", "") for l in url_list if type(l) is str if l[-4:] not in [".png", ".jpg", ".pdf", ".txt"]]
 	url_set = set(url_list)
 
@@ -243,23 +239,15 @@ def main():
 	words_list = [w for w in words_list if w not in stops if len(w) > 1]
 	url_endings_list = read_csv_to_list('data/domains_endings.csv')
 	words_list = words_list + url_endings_list
-	del companies_df, first_hop_df, second_hop_df, third_hop_df, url_endings_list
+	del url_endings_list
 
 	##------------------- Initialize Crawler Agent and TF graph/session
-	step_count = 0
-	pages_crawled = 0
-	total_reward = 0
-	terminal_states = 0
-	reward_pages = []
-	recent_urls = []
-	reward_domains = ["thisisapretendrewarddomaintogetstarted123456789.com"]
-	A_reward = init_automaton(reward_domains)  # initialize domain automaton
-	A_reward.make_automaton()
+	step_count = 0; pages_crawled = 0; total_reward = 0; terminal_states = 0
+	reward_pages = []; recent_urls = []; reward_domain_set = set()
 
 	tf.reset_default_graph()
 	agent = CrawlerAgent(url_list, reward_urls, words_list, cycle_freq=cycle_freq, 
-		num_steps=num_steps, print_freq=print_freq, gamma=gamma, 
-		load_buffer=load_buffer, learning_rate=learning_rate)
+		num_steps=num_steps, print_freq=print_freq, gamma=gamma, load_buffer=load_buffer, learning_rate=learning_rate)
 	init = tf.global_variables_initializer()
 	saver = tf.train.Saver()
 
@@ -275,12 +263,12 @@ def main():
 				'coef': agent.weights.eval().reshape(-1).tolist()})
 			weights_df.to_csv("results/feature_coefficients.csv", index=False, header=True)
 
-			# Test a URL
-			test_url = "www.tax.service.gov.uk"                                                                                              
-			# test_url = "www.panasonic.com"
-			s = np.array(build_url_feature_vector(agent.A, agent.words, test_url))
-			v = sess.run(agent.v, feed_dict={agent.state: s.reshape(1, -1)})
-			print("Value of URL {} is {}".format(test_url, float(v)))
+			# # Test a URL
+			# test_url = "www.tax.service.gov.uk"                                                                                              
+			# # test_url = "www.panasonic.com"
+			# s = np.array(build_url_feature_vector(agent.A, agent.words, test_url))
+			# v = sess.run(agent.v, feed_dict={agent.state: s.reshape(1, -1)})
+			# print("Value of URL {} is {}".format(test_url, float(v)))
 
 		else:
 			##------------------ Run and train crawler agent -----------------------
@@ -295,28 +283,22 @@ def main():
 					if len(recent_urls) > agent.cycle_freq:
 						recent_urls = recent_urls[-agent.cycle_freq:]
 
+					# Get rewards and remove domain if reward
+					r = get_reward(url, A_company, reward_urls)
+					pages_crawled += 1
+					total_reward += r
+					agent.train_results_dict['total_reward'].append(total_reward)
+					if r > 0:
+						reward_pages.append(url)
+						reward_domain = url.split("/", 1)[0]
+						reward_domain_set.update(lookup_domain_name(links_df, reward_domain))
+						url_set = url_set - reward_domain_set
+					
 					# Feature representation of current page (state) and links in page
 					state = np.array(build_url_feature_vector(agent.A, agent.words, url)).reshape(1, -1)
 					link_list = get_list_of_links(url)
 					link_list = set(link_list).intersection(url_set)
 					link_list = list(link_list - set(recent_urls))
-
-					# Get rewards
-					r = get_reward(url, A_company, reward_urls)
-					pages_crawled += 1
-					total_reward += r
-
-					# Remove domains for which we've recently got rewards
-					if r > 0:
-						reward_pages.append(url)
-						reward_domains.append(url.split("/", 1)[0])
-						# if len(reward_domains) > reward_dom_freq:
-							# reward_domains = reward_domains[-reward_dom_freq:]
-						A_reward = init_automaton(reward_domains)
-						A_reward.make_automaton()
-
-					link_list = [l for l in link_list if sum(check_strings(A_reward, reward_domains, l))==0]
-					agent.train_results_dict['total_reward'].append(total_reward)
 
 					# Check if terminal state
 					if r > 0 or len(link_list) == 0:
@@ -344,8 +326,7 @@ def main():
 					# if step_count % buffer_save_freq == 0:
 					# 	agent.replay_buffer.save()
 
-					# Print progress
-					# For debugging i.e. check the value function actually changes
+					# Print progress + for debugging check the value function actually changes
 					if step_count == 1:
 						start_url = url
 						start_state = state

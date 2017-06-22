@@ -81,16 +81,15 @@ def get_all_links(url_list):
 	# print("\nSkipped %d URLs" % len(skipped_urls))
 	return full_link_list
 
+def lookup_domain_name(links_df, domain_url):
+	"""Returns list of all URLs within domain web site (in database)"""
+	return links_df[links_df['domain'] == domain_url]['url'].tolist()
+
 
 ##-----------------------------------------------------------
 ##-------- RL Functions -------------------------------------
 def get_reward(url, A_company, company_urls):
 	"""Return 1 if company URL, 0 otherwise"""
-	# if any(c in url for c in company_urls):
-	# 	reward = 1
-	# else:
-	# 	reward = 0
-	# return reward
 	if sum(check_strings(A_company, company_urls, url)) > 0:
 		return 1
 	return 0
@@ -109,17 +108,9 @@ def main():
 	A_company = init_automaton(reward_urls)  # Aho-corasick automaton
 	A_company.make_automaton()
 
-	# Rest of URLs to form the state space
-	first_hop_df = pd.read_csv('data/first_hop_links.csv', names = ["url"])
-	url_list = reward_urls + first_hop_df['url'].tolist()
-	second_hop_df = pd.read_csv('data/second_hop_links.csv', names = ["url"])
-	url_list = url_list + second_hop_df['url'].tolist()
-	third_hop_df = pd.read_csv('data/third_hop_links.csv', names = ["url"])
-	url_list = url_list + third_hop_df['url'].tolist()
-	url_list = list(set(url_list))
-	del companies_df, first_hop_df, second_hop_df, third_hop_df
-
-	# Remove any pages that obviously won't have hyperlinks/rewards
+	# Rest of URLs to form the state space (remove any pages that obviously won't have hyperlinks/rewards)
+	links_df = pd.read_csv('data/links_dataframe.csv')
+	url_list = links_df['url'].tolist()
 	url_list = [l.replace("http://", "").replace("https://", "") for l in url_list if type(l) is str if l[-4:] not in [".png", ".jpg", ".pdf", ".txt"]]
 	url_set = set(url_list)
 	
@@ -132,7 +123,6 @@ def main():
 
 	# Parameters
 	cycle_freq = 50
-	reward_dom_freq = 2
 	number_crawls = 20000
 	print_freq = 1000
 
@@ -143,9 +133,7 @@ def main():
 	count_idx = 0
 	recent_urls = []
 	reward_pages = []
-	reward_domains = ["thisisapretendrewarddomaintogetstarted123456789.com"]
-	A_reward = init_automaton(reward_domains)
-	A_reward.make_automaton()
+	reward_domain_set = set()
 
 	while count_idx < number_crawls:
 		url = random.choice(list(url_set - set(recent_urls)))  # don't start at recent URL
@@ -168,24 +156,20 @@ def main():
 			if len(recent_urls) > cycle_freq:
 				recent_urls = recent_urls[-cycle_freq:]
 
-			# List of next possible URLs 
-			link_list = get_list_of_links(url)
-			link_list = set(link_list).intersection(url_set)
-			link_list = list(link_list - set(recent_urls))
-
 			# Get rewards
 			r = get_reward(url, A_company, reward_urls)
 			pages_crawled += 1
 			total_reward += r
 			if r > 0:
 				reward_pages.append(url)
-				reward_domains.append(url.split("/", 1)[0])
-				# if len(reward_domains) > reward_dom_freq:
-					# reward_domains = reward_domains[-reward_dom_freq:]
+				reward_domain = url.split("/", 1)[0]
+				reward_domain_set.update(lookup_domain_name(links_df, reward_domain))
+				url_set = url_set - reward_domain_set
 
-				A_reward = init_automaton(reward_domains)
-				A_reward.make_automaton()
-				link_list = [l for l in link_list if sum(check_strings(A_reward, reward_domains, l))==0]
+			# List of next possible URLs 
+			link_list = get_list_of_links(url)
+			link_list = set(link_list).intersection(url_set)
+			link_list = list(link_list - set(recent_urls))
 
 			# Choose next URL from list
 			if r > 0 or len(link_list) == 0:
