@@ -204,7 +204,7 @@ def main():
 	gamma = 0.99
 	buffer_save_freq = 1000
 	load_buffer = False
-	learning_rate = 0.1
+	learning_rate = 0.001
 	reload_model = True
 
 	##-------------------- Read in data
