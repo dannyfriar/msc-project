@@ -188,7 +188,7 @@ def main():
 				link_list = [l for l in link_list if sum(check_strings(A_reward, reward_domains, l))==0]
 
 			# Choose next URL from list
-			if len(link_list) == 0:
+			if r > 0 or len(link_list) == 0:
 				terminal_states += 1
 				break
 			url = random.choice(link_list)

@@ -204,8 +204,8 @@ def main():
 	gamma = 0.99
 	buffer_save_freq = 1000
 	load_buffer = False
-	learning_rate = 0.001
-	reload_model = True
+	learning_rate = 0.1
+	reload_model = False
 
 	##-------------------- Read in data
 	# Company i.e. reward URLs
@@ -245,7 +245,7 @@ def main():
 	terminal_states = 0
 	reward_pages = []
 	recent_urls = []
-	reward_domains = []
+	reward_domains = ["thisisapretendrewarddomaintogetstarted123456789"]
 	A_reward = init_automaton(reward_domains)  # initialize domain automaton
 	A_reward.make_automaton()
 
@@ -305,10 +305,10 @@ def main():
 					agent.train_results_dict['total_reward'].append(total_reward)
 
 					# Check if terminal state
-					if len(link_list) == 0:
+					if r > 0 or len(link_list) == 0:
 						terminal_states += 1
 						is_terminal = 1
-						next_state_array = np.zeros(shape=(1, len(words_list)+1))
+						next_state_array = np.zeros(shape=(1, len(words_list)+1))  # doesn't matter what this is
 					else:
 						is_terminal = 0
 						next_state_list = [np.array(build_url_feature_vector(agent.A, agent.words, l)) for l in link_list]
