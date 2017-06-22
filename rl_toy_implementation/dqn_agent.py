@@ -212,11 +212,11 @@ def main():
 	num_steps = 10000  # no. crawled pages before stopping
 	print_freq = 1000
 	epsilon = 0.05
-	gamma = 0.5
+	gamma = 0.95
 	buffer_save_freq = 1000
 	load_buffer = False
 	learning_rate = 0.01
-	reload_model = False
+	reload_model = True
 
 	##-------------------- Read in data
 	# Company i.e. reward URLs

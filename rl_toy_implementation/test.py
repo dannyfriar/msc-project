@@ -37,8 +37,8 @@ def get_list_of_links(url, s=storage):
 	return link_list
 
 
-
-print()
+my_url = "www.cavehillaccountancy.com"
+print(storage.get_page().url)
 
 
 
