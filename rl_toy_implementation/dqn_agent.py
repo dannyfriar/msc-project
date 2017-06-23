@@ -216,7 +216,7 @@ def main():
 	buffer_save_freq = 1000
 	load_buffer = False
 	learning_rate = 0.01
-	reload_model = True
+	reload_model = False
 
 	##-------------------- Read in data
 	# Company i.e. reward URLs
@@ -359,7 +359,7 @@ def main():
 			print("\nCrawled {} pages, total reward = {}, # terminal states = {}"\
 				.format(pages_crawled, total_reward, terminal_states))
 			agent.save_train_results()
-			agent.save_tf_model(sess, saver)
+			# agent.save_tf_model(sess, saver)
 
 			df = pd.DataFrame(reward_pages, columns=["rewards_pages"])
 			df.to_csv('results/reward_pages.csv', index=False)
