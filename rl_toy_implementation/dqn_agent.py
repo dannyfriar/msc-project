@@ -75,21 +75,29 @@ def check_strings(A, search_list, string_to_search):
 	output_list[index_list] = 1
 	return output_list.tolist()
 
-def build_url_feature_vector(A, search_list, string_to_search):
+def build_url_feature_vector(A, search_list, string_to_search, reward_domain_set):
 	"""Presence of search_list words in string,
 	along with length of string"""
 	feature_vector = check_strings(A, search_list, string_to_search)
 	feature_vector.append(len(string_to_search))
+	if string_to_search in reward_domain_set:
+		feature_vector.append(1)
+	else:
+		feature_vector.append(0)
 	return feature_vector
 
 
 ##-----------------------------------------------------------
 ##-------- RL Functions -------------------------------------
-def get_reward(url, A_company, company_urls):
+def get_reward(url, A_company, company_urls, rm_indices):
 	"""Return 1 if company URL, 0 otherwise"""
-	if sum(check_strings(A_company, company_urls, url)) > 0:
-		return 1
-	return 0
+	idx_list = check_strings(A_company, company_urls, url)
+	if len(rm_indices) > 0:
+		idx_list = np.delete(idx_list, rm_indices).tolist()
+	if sum(idx_list) > 0:
+		reward_url_idx = np.nonzero(idx_list)[0][0]
+		return 1, reward_url_idx
+	return 0, None
 
 def epsilon_greedy(epsilon, action_list):
 	"""Returns index of chosen action"""
@@ -165,8 +173,8 @@ class CrawlerAgent(object):
 		self.A.make_automaton()
 
 		# Tensorflow placeholders and initialize buffer
-		self.state = tf.placeholder(dtype=tf.float32, shape=[None, len(self.words)+1])
-		self.next_state = tf.placeholder(dtype=tf.float32, shape=[None, len(self.words)+1])
+		self.state = tf.placeholder(dtype=tf.float32, shape=[None, len(self.words)+2])
+		self.next_state = tf.placeholder(dtype=tf.float32, shape=[None, len(self.words)+2])
 		self.reward = tf.placeholder(dtype=tf.float32)
 		self.is_terminal = tf.placeholder(dtype=tf.float32)
 		self.build_target_net()
@@ -186,7 +194,7 @@ class CrawlerAgent(object):
 		# idx = tf.where(tf.not_equal(self.state, 0))
 		# sparse_state = tf.SparseTensor(idx, tf.gather_nd(self.state, idx), self.state.get_shape())
 		# self.v = sparse_tensor_dense_matmul(sparse_state, self.weights)
-		self.weights = tf.get_variable("weights", [len(self.words)+1, 1], 
+		self.weights = tf.get_variable("weights", [len(self.words)+2, 1], 
 			initializer = tf.random_normal_initializer(mean=0.0, stddev=0.001))
 		self.bias = tf.get_variable('bias', [1], initializer = tf.constant_initializer(0.001))
 		self.v = tf.matmul(self.state, self.weights) + self.bias
@@ -209,7 +217,7 @@ class CrawlerAgent(object):
 def main():
 	##-------------------- Parameters
 	cycle_freq = 50
-	num_steps = 10000  # no. crawled pages before stopping
+	num_steps = 20000  # no. crawled pages before stopping
 	print_freq = 1000
 	epsilon = 0.05
 	gamma = 0.5
@@ -243,7 +251,8 @@ def main():
 
 	##------------------- Initialize Crawler Agent and TF graph/session
 	step_count = 0; pages_crawled = 0; total_reward = 0; terminal_states = 0
-	reward_pages = []; recent_urls = []; reward_domain_set = set()
+	reward_pages = []; recent_urls = []; removed_reward_indices = []; 
+	reward_domain_set = set()
 	account_dict = {
 		'url': [],
 		'reward': [],
@@ -289,18 +298,21 @@ def main():
 						recent_urls = recent_urls[-agent.cycle_freq:]
 
 					# Get rewards and remove domain if reward
-					r = get_reward(url, A_company, reward_urls)
+					r, reward_url_idx = get_reward(url, A_company, reward_urls, removed_reward_indices)
 					pages_crawled += 1
 					total_reward += r
 					agent.train_results_dict['total_reward'].append(total_reward)
 					if r > 0:
 						reward_pages.append(url)
-						# reward_domain = url.split("/", 1)[0]
-						# reward_domain_set.update(lookup_domain_name(links_df, reward_domain))
+						removed_reward_indices.append(reward_url_idx)
+						reward_domain_set.update(lookup_domain_name(links_df, reward_urls[reward_url_idx]))
+						# reward_urls.pop(reward_url_idx)
+						# A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
+						# A_company.make_automaton()
 						# url_set = url_set - reward_domain_set
 					
 					# Feature representation of current page (state) and links in page
-					state = np.array(build_url_feature_vector(agent.A, agent.words, url)).reshape(1, -1)
+					state = np.array(build_url_feature_vector(agent.A, agent.words, url, reward_domain_set)).reshape(1, -1)
 					link_list = get_list_of_links(url)
 					link_list = set(link_list).intersection(url_set)
 					link_list = list(link_list - set(recent_urls))
@@ -309,10 +321,10 @@ def main():
 					if r > 0 or len(link_list) == 0:
 						terminal_states += 1
 						is_terminal = 1
-						next_state_array = np.zeros(shape=(1, len(words_list)+1))  # doesn't matter what this is
+						next_state_array = np.zeros(shape=(1, len(words_list)+2))  # doesn't matter what this is
 					else:
 						is_terminal = 0
-						next_state_list = [np.array(build_url_feature_vector(agent.A, agent.words, l)) for l in link_list]
+						next_state_list = [np.array(build_url_feature_vector(agent.A, agent.words, l, reward_domain_set)) for l in link_list]
 						next_state_array = np.array(next_state_list)
 					agent.train_results_dict['terminal_states'].append(terminal_states)
 
@@ -345,8 +357,8 @@ def main():
 
 					progress_bar(step_count+1, agent.num_steps)
 					if step_count % agent.print_freq == 0:
-						print("\nCrawled {} pages, total reward = {}, # terminal states = {}"\
-						.format(pages_crawled, total_reward, terminal_states))
+						print("\nCrawled {} pages, total reward = {}, # terminal states = {}, remaining rewards = {}"\
+						.format(pages_crawled, total_reward, terminal_states, len(reward_urls)-len(removed_reward_indices)))
 					agent.train_results_dict['pages_crawled'].append(pages_crawled)
 
 					# Choose next URL (and check for looping)
@@ -359,7 +371,7 @@ def main():
 			print("\nCrawled {} pages, total reward = {}, # terminal states = {}"\
 				.format(pages_crawled, total_reward, terminal_states))
 			agent.save_train_results()
-			# agent.save_tf_model(sess, saver)
+			agent.save_tf_model(sess, saver)
 
 			df = pd.DataFrame(reward_pages, columns=["rewards_pages"])
 			df.to_csv('results/reward_pages.csv', index=False)

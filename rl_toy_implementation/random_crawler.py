@@ -88,11 +88,15 @@ def lookup_domain_name(links_df, domain_url):
 
 ##-----------------------------------------------------------
 ##-------- RL Functions -------------------------------------
-def get_reward(url, A_company, company_urls):
+def get_reward(url, A_company, company_urls, rm_indices):
 	"""Return 1 if company URL, 0 otherwise"""
-	if sum(check_strings(A_company, company_urls, url)) > 0:
-		return 1
-	return 0
+	idx_list = check_strings(A_company, company_urls, url)
+	if len(rm_indices) > 0:
+		idx_list = np.delete(idx_list, rm_indices).tolist()
+	if sum(idx_list) > 0:
+		reward_url_idx = np.nonzero(idx_list)[0][0]
+		return 1, reward_url_idx
+	return 0, None
 
 
 ##-----------------------------------------------------------
@@ -123,7 +127,7 @@ def main():
 
 	# Parameters
 	cycle_freq = 50
-	number_crawls = 50000
+	number_crawls = 20000
 	print_freq = 1000
 
 	# To store
@@ -133,7 +137,7 @@ def main():
 	count_idx = 0
 	recent_urls = []
 	reward_pages = []
-	reward_domain_set = set()
+	removed_reward_indices = []
 
 	while count_idx < number_crawls:
 		url = random.choice(list(url_set - set(recent_urls)))  # don't start at recent URL
@@ -157,14 +161,12 @@ def main():
 				recent_urls = recent_urls[-cycle_freq:]
 
 			# Get rewards
-			r = get_reward(url, A_company, reward_urls)
+			r, reward_url_idx = get_reward(url, A_company, reward_urls, removed_reward_indices)
 			pages_crawled += 1
 			total_reward += r
 			if r > 0:
 				reward_pages.append(url)
-				reward_domain = url.split("/", 1)[0]
-				reward_domain_set.update(lookup_domain_name(links_df, reward_domain))
-				url_set = url_set - reward_domain_set
+				removed_reward_indices.append(reward_url_idx)
 
 			# List of next possible URLs 
 			link_list = get_list_of_links(url)
