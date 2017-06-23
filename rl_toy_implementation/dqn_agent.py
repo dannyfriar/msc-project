@@ -251,11 +251,6 @@ def main():
 	step_count = 0; pages_crawled = 0; total_reward = 0; terminal_states = 0
 	reward_pages = []; recent_urls = [];
 	reward_domain_set = set()
-	account_dict = {
-		'url': [],
-		'reward': [],
-		'value': []
-	}
 
 	tf.reset_default_graph()
 	agent = CrawlerAgent(url_list, reward_urls, words_list, cycle_freq=cycle_freq, 
@@ -271,7 +266,7 @@ def main():
 			saver = tf.train.import_meta_graph('models/linear_model/tf_model.meta')
 			saver.restore(sess, tf.train.latest_checkpoint('models/linear_model/'))
 			all_vars = tf.get_collection('vars')
-			weights_df = pd.DataFrame.from_dict({'words':words_list+['url_length'], 
+			weights_df = pd.DataFrame.from_dict({'words':words_list+['url_length', 'previous_reward'], 
 				'coef': agent.weights.eval().reshape(-1).tolist()})
 			weights_df.to_csv("results/feature_coefficients.csv", index=False, header=True)
 
@@ -336,12 +331,6 @@ def main():
 					opt, loss, v_next, v  = sess.run([agent.opt, agent.loss, agent.v_next, agent.v], feed_dict=train_dict)
 					agent.train_results_dict['nn_loss'].append(float(loss))
 
-					# Check accountancy firms
-					if "account" in url:
-						account_dict['url'].append(url)
-						account_dict['reward'].append(r)
-						account_dict['value'].append(float(v))
-
 					# # Update buffer
 					# agent.replay_buffer.update(state, next_state_array, r, is_terminal)
 					# if step_count % buffer_save_freq == 0:
@@ -373,9 +362,6 @@ def main():
 
 			df = pd.DataFrame(reward_pages, columns=["rewards_pages"])
 			df.to_csv('results/reward_pages.csv', index=False)
-
-			account_df = pd.DataFrame(account_dict)
-			account_df.to_csv('results/account_results.csv', index=False)
 
 			v = sess.run(agent.v, feed_dict={agent.state: start_state.reshape(1, -1)})
 			print("{} now has value {}".format(start_url, float(v)))

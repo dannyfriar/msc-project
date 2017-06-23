@@ -135,6 +135,7 @@ def main():
 	count_idx = 0
 	recent_urls = []
 	reward_pages = []
+	reward_domain_set = set()
 
 	while count_idx < number_crawls:
 		url = random.choice(list(url_set - set(recent_urls)))  # don't start at recent URL
@@ -166,6 +167,9 @@ def main():
 				reward_urls.pop(reward_url_idx)
 				A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
 				A_company.make_automaton()
+				reward_domain = url.split("/", 1)[0]
+				reward_domain_set.update(lookup_domain_name(links_df, reward_domain))
+				url_set = url_set - reward_domain_set
 
 			# List of next possible URLs 
 			link_list = get_list_of_links(url)
@@ -184,10 +188,10 @@ def main():
 
 	##----------------- Save results
 	results_df = pd.DataFrame.from_dict(results_dict)
-	results_df.to_csv("results/random_crawler_results_new.csv", header=True, index=False)
+	# results_df.to_csv("results/random_crawler_results_new.csv", header=True, index=False)
 
 	df = pd.DataFrame(reward_pages, columns=["rewards_pages"])
-	df.to_csv('results/random_reward_pages.csv', index=False)
+	# df.to_csv('results/random_reward_pages.csv', index=False)
 
 
 if __name__ == "__main__":
