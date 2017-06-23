@@ -215,7 +215,7 @@ class CrawlerAgent(object):
 def main():
 	##-------------------- Parameters
 	cycle_freq = 50
-	num_steps = 20000  # no. crawled pages before stopping
+	num_steps = 50000  # no. crawled pages before stopping
 	print_freq = 1000
 	epsilon = 0.05
 	gamma = 0.5
@@ -356,7 +356,7 @@ def main():
 					progress_bar(step_count+1, agent.num_steps)
 					if step_count % agent.print_freq == 0:
 						print("\nCrawled {} pages, total reward = {}, # terminal states = {}, remaining rewards = {}"\
-						.format(pages_crawled, total_reward, terminal_states, len(reward_urls)-len(removed_reward_indices)))
+						.format(pages_crawled, total_reward, terminal_states, len(reward_urls)))
 					agent.train_results_dict['pages_crawled'].append(pages_crawled)
 
 					# Choose next URL (and check for looping)
