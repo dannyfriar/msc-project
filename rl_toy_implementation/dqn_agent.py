@@ -187,7 +187,7 @@ class CrawlerAgent(object):
 		# sparse_state = tf.SparseTensor(idx, tf.gather_nd(self.state, idx), self.state.get_shape())
 		# self.v = sparse_tensor_dense_matmul(sparse_state, self.weights)
 		self.weights = tf.get_variable("weights", [len(self.words)+1, 1], 
-			initializer = tf.random_normal_initializer(mean=0.0, stddev=0.01))
+			initializer = tf.random_normal_initializer(mean=0.0, stddev=0.001))
 		self.bias = tf.get_variable('bias', [1], initializer = tf.constant_initializer(0.001))
 		self.v = tf.matmul(self.state, self.weights) + self.bias
 		self.v_next = tf.matmul(self.next_state, self.weights) + self.bias
@@ -212,7 +212,7 @@ def main():
 	num_steps = 50000  # no. crawled pages before stopping
 	print_freq = 1000
 	epsilon = 0.05
-	gamma = 0.7
+	gamma = 0.5
 	buffer_save_freq = 1000
 	load_buffer = False
 	learning_rate = 0.01

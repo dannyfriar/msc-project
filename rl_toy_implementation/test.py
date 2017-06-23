@@ -36,6 +36,22 @@ def get_list_of_links(url, s=storage):
 		return []
 	return link_list
 
+def get_all_links(url_list):
+	"""Get all links from a list of URLs"""
+	full_link_list = []
+	skipped_urls = []
+	for idx, url in enumerate(url_list):
+		progress_bar(idx+1, len(url_list))
+		try:
+			link_list = get_list_of_links(url)
+		except (UnicodeError, IndexError):
+			skipped_urls.append(url)
+		full_link_list = full_link_list + link_list
+	full_link_list = full_link_list + url_list
+	full_link_list = list(set(full_link_list))
+	print("\nSkipped %d URLs" % len(skipped_urls))
+	return full_link_list
+
 
 def init_automaton(string_list):
 	"""Make Aho-Corasick automaton from a list of strings"""
@@ -62,10 +78,6 @@ def get_reward(url, A_company, company_urls):
 	return 0
 
 
-# my_url = "www.cavehillaccountancy.com"
-# print(storage.get_page().url)
-
-
 # Company i.e. reward URLs
 companies_df = pd.read_csv('../data/domains_clean.csv')
 companies_df = companies_df[companies_df['vert_code'] <= 69203]
@@ -75,9 +87,14 @@ reward_urls = [l.replace("http://", "").replace("https://", "") for l in reward_
 A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
 A_company.make_automaton()
 
+links_df = pd.read_csv('data/links_dataframe.csv')
+url_list = links_df['url'].tolist()
+url_list = [l.replace("http://", "").replace("https://", "") for l in url_list if type(l) is str if l[-4:] not in [".png", ".jpg", ".pdf", ".txt"]]
 
-print(storage.get_page("www.23w-accountants.co.uk"))
-# print(get_reward("www.carthyaccountants.co.uk/blog/", A_company, reward_urls))
+# Get value of a random URL
+url = random.choice(url_list)
+
+
 
 
 
