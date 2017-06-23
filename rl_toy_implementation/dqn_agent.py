@@ -149,7 +149,7 @@ class CrawlerAgent(object):
 	def __init__(self, url_list, reward_urls, word_list,
 		cycle_freq, num_steps, print_freq, gamma=0.99, load_buffer=False,
 		learning_rate=0.01,
-		train_save_location="results/dqn_crawler_train_results_new.csv",
+		train_save_location="results/dqn_crawler_train_results_retry.csv",
 		tf_model_folder="models/linear_model"):
 
 		# Set up state space and training parameters
@@ -209,14 +209,14 @@ class CrawlerAgent(object):
 def main():
 	##-------------------- Parameters
 	cycle_freq = 50
-	num_steps = 50000  # no. crawled pages before stopping
+	num_steps = 10000  # no. crawled pages before stopping
 	print_freq = 1000
 	epsilon = 0.05
 	gamma = 0.5
 	buffer_save_freq = 1000
 	load_buffer = False
 	learning_rate = 0.01
-	reload_model = False
+	reload_model = True
 
 	##-------------------- Read in data
 	# Company i.e. reward URLs
@@ -295,9 +295,9 @@ def main():
 					agent.train_results_dict['total_reward'].append(total_reward)
 					if r > 0:
 						reward_pages.append(url)
-						reward_domain = url.split("/", 1)[0]
-						reward_domain_set.update(lookup_domain_name(links_df, reward_domain))
-						url_set = url_set - reward_domain_set
+						# reward_domain = url.split("/", 1)[0]
+						# reward_domain_set.update(lookup_domain_name(links_df, reward_domain))
+						# url_set = url_set - reward_domain_set
 					
 					# Feature representation of current page (state) and links in page
 					state = np.array(build_url_feature_vector(agent.A, agent.words, url)).reshape(1, -1)
