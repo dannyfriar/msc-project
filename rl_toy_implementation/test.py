@@ -62,8 +62,6 @@ def get_reward(url, A_company, company_urls):
 	return 0
 
 
-
-
 # my_url = "www.cavehillaccountancy.com"
 # print(storage.get_page().url)
 

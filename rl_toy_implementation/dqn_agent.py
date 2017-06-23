@@ -209,14 +209,14 @@ class CrawlerAgent(object):
 def main():
 	##-------------------- Parameters
 	cycle_freq = 50
-	num_steps = 10000  # no. crawled pages before stopping
+	num_steps = 50000  # no. crawled pages before stopping
 	print_freq = 1000
 	epsilon = 0.05
-	gamma = 0.95
+	gamma = 0.7
 	buffer_save_freq = 1000
 	load_buffer = False
 	learning_rate = 0.01
-	reload_model = True
+	reload_model = False
 
 	##-------------------- Read in data
 	# Company i.e. reward URLs
