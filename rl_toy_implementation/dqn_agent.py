@@ -89,11 +89,9 @@ def build_url_feature_vector(A, search_list, string_to_search, reward_domain_set
 
 ##-----------------------------------------------------------
 ##-------- RL Functions -------------------------------------
-def get_reward(url, A_company, company_urls, rm_indices):
+def get_reward(url, A_company, company_urls):
 	"""Return 1 if company URL, 0 otherwise"""
 	idx_list = check_strings(A_company, company_urls, url)
-	if len(rm_indices) > 0:
-		idx_list = np.delete(idx_list, rm_indices).tolist()
 	if sum(idx_list) > 0:
 		reward_url_idx = np.nonzero(idx_list)[0][0]
 		return 1, reward_url_idx
@@ -251,7 +249,7 @@ def main():
 
 	##------------------- Initialize Crawler Agent and TF graph/session
 	step_count = 0; pages_crawled = 0; total_reward = 0; terminal_states = 0
-	reward_pages = []; recent_urls = []; removed_reward_indices = []; 
+	reward_pages = []; recent_urls = [];
 	reward_domain_set = set()
 	account_dict = {
 		'url': [],
@@ -298,17 +296,17 @@ def main():
 						recent_urls = recent_urls[-agent.cycle_freq:]
 
 					# Get rewards and remove domain if reward
-					r, reward_url_idx = get_reward(url, A_company, reward_urls, removed_reward_indices)
+					r, reward_url_idx = get_reward(url, A_company, reward_urls)
 					pages_crawled += 1
 					total_reward += r
 					agent.train_results_dict['total_reward'].append(total_reward)
 					if r > 0:
 						reward_pages.append(url)
-						removed_reward_indices.append(reward_url_idx)
 						reward_domain_set.update(lookup_domain_name(links_df, reward_urls[reward_url_idx]))
-						# reward_urls.pop(reward_url_idx)
-						# A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
-						# A_company.make_automaton()
+						reward_urls.pop(reward_url_idx)
+						A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
+						A_company.make_automaton()
+						# removed_reward_indices.append(reward_url_idx)		
 						# url_set = url_set - reward_domain_set
 					
 					# Feature representation of current page (state) and links in page

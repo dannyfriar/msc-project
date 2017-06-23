@@ -88,11 +88,9 @@ def lookup_domain_name(links_df, domain_url):
 
 ##-----------------------------------------------------------
 ##-------- RL Functions -------------------------------------
-def get_reward(url, A_company, company_urls, rm_indices):
+def get_reward(url, A_company, company_urls):
 	"""Return 1 if company URL, 0 otherwise"""
 	idx_list = check_strings(A_company, company_urls, url)
-	if len(rm_indices) > 0:
-		idx_list = np.delete(idx_list, rm_indices).tolist()
 	if sum(idx_list) > 0:
 		reward_url_idx = np.nonzero(idx_list)[0][0]
 		return 1, reward_url_idx
@@ -127,7 +125,7 @@ def main():
 
 	# Parameters
 	cycle_freq = 50
-	number_crawls = 20000
+	number_crawls = 10000
 	print_freq = 1000
 
 	# To store
@@ -137,7 +135,6 @@ def main():
 	count_idx = 0
 	recent_urls = []
 	reward_pages = []
-	removed_reward_indices = []
 
 	while count_idx < number_crawls:
 		url = random.choice(list(url_set - set(recent_urls)))  # don't start at recent URL
@@ -161,12 +158,14 @@ def main():
 				recent_urls = recent_urls[-cycle_freq:]
 
 			# Get rewards
-			r, reward_url_idx = get_reward(url, A_company, reward_urls, removed_reward_indices)
+			r, reward_url_idx = get_reward(url, A_company, reward_urls)
 			pages_crawled += 1
 			total_reward += r
 			if r > 0:
 				reward_pages.append(url)
-				removed_reward_indices.append(reward_url_idx)
+				reward_urls.pop(reward_url_idx)
+				A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
+				A_company.make_automaton()
 
 			# List of next possible URLs 
 			link_list = get_list_of_links(url)
