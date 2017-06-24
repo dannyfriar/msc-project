@@ -156,6 +156,7 @@ class CrawlerAgent(object):
 		cycle_freq, num_steps, print_freq, gamma=0.99, load_buffer=False,
 		learning_rate=0.01,
 		train_save_location="results/dqn_crawler_train_results_retry.csv",
+		# train_save_location="results/dqn_crawler_train_results_retry_again.csv",
 		tf_model_folder="models/linear_model"):
 
 		# Set up state space and training parameters
@@ -221,7 +222,7 @@ def main():
 	gamma = 0.5
 	buffer_save_freq = 1000
 	load_buffer = False
-	learning_rate = 0.01
+	learning_rate = 0.1
 	reload_model = False
 
 	##-------------------- Read in data

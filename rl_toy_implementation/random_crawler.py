@@ -139,12 +139,14 @@ def main():
 
 	while count_idx < number_crawls:
 		url = random.choice(list(url_set - set(recent_urls)))  # don't start at recent URL
+		# eps_length = 0
 
 		while count_idx < number_crawls:
 			count_idx += 1
+			# eps_length += 1
 
 			# Track progress
-			progress_bar(count_idx, number_crawls)
+			# progress_bar(count_idx, number_crawls)
 			if count_idx % print_freq == 0:
 				print("\nCrawled {} pages, total reward = {}, # terminal states = {}"\
 				.format(pages_crawled, total_reward, terminal_states))
@@ -170,6 +172,7 @@ def main():
 				reward_domain = url.split("/", 1)[0]
 				reward_domain_set.update(lookup_domain_name(links_df, reward_domain))
 				url_set = url_set - reward_domain_set
+			# print(eps_length)
 
 			# List of next possible URLs 
 			link_list = get_list_of_links(url)

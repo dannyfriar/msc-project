@@ -20,12 +20,18 @@ from nltk.corpus import stopwords, words, names
 stops = stopwords.words("english")
 
 ##-----------------------------
+def progress_bar(value, endvalue, bar_length=20):
+    """Print progress bar to the console"""
+    percent = float(value) / endvalue
+    arrow = '-' * int(round(percent * bar_length)-1) + '>'
+    spaces = ' ' * (bar_length - len(arrow))
+    sys.stdout.write("\rPercent complete: [{0}] {1}%".format(arrow + spaces, int(round(percent * 100))))
+    sys.stdout.flush()
+
 def get_list_of_links(url, s=storage):
 	"""Use the LMDB database to get a list of links for a given URL"""
 	try:
 		page = s.get_page(url)
-		print(page.links)
-		# print(page)
 	except UnicodeError:
 		return []
 	if page is None:
@@ -41,15 +47,16 @@ def get_all_links(url_list):
 	full_link_list = []
 	skipped_urls = []
 	for idx, url in enumerate(url_list):
-		progress_bar(idx+1, len(url_list))
+		# progress_bar(idx+1, len(url_list))
 		try:
 			link_list = get_list_of_links(url)
 		except (UnicodeError, IndexError):
 			skipped_urls.append(url)
+			link_list = []
 		full_link_list = full_link_list + link_list
 	full_link_list = full_link_list + url_list
 	full_link_list = list(set(full_link_list))
-	print("\nSkipped %d URLs" % len(skipped_urls))
+	# print("\nSkipped %d URLs" % len(skipped_urls))
 	return full_link_list
 
 
@@ -91,34 +98,75 @@ links_df = pd.read_csv('data/links_dataframe.csv')
 url_list = links_df['url'].tolist()
 url_list = [l.replace("http://", "").replace("https://", "") for l in url_list if type(l) is str if l[-4:] not in [".png", ".jpg", ".pdf", ".txt"]]
 
-# Get value of a random URL
-url = random.choice(url_list)
+# print(get_list_of_links(url="www.bloomberg.com"))
+url = "murchisonlaw.co.uk"
+first_link_list = get_list_of_links(url)
+second_link_list = first_link_list + get_all_links(first_link_list)
+third_link_list = second_link_list + get_all_links(second_link_list)
+print(len(third_link_list))
+print(third_link_list)
 
+print(sum(check_strings(A_company, reward_urls, " ".join(third_link_list))))
 
+# # Get value of a random URL
+# gamma = 0.5
+# loop_range = 1000
+# crawled_pages = 0
+# path_to_reward = 0
 
+# for idx, i in enumerate(range(loop_range)):
+# 	progress_bar(idx, loop_range)
 
+# 	url = random.choice(url_list)
 
+# 	r = sum(check_strings(A_company, reward_urls, url))
+# 	if r > 1:
+# 		# print("Return of {} is {}".format(url, r))
+# 		# exit(0)
+# 		continue
 
+# 	crawled_pages += 1
 
+# 	first_hop_links = get_list_of_links(url)
+# 	if len(first_hop_links) == 0:
+# 		# print("Return of {} is {}".format(url, 0))
+# 		# print("No first hop links")
+# 		# exit(0)
+# 		continue
 
+# 	r = sum(check_strings(A_company, reward_urls, " ".join(first_hop_links)))
+# 	if r > 1:
+# 		# print("Return of {} is {}".format(url, gamma*r))
+# 		# exit(0)
+# 		path_to_reward += 1
 
+# 	second_hop_links = get_all_links(first_hop_links)
+# 	if len(second_hop_links) == 0:
+# 		# print("Return of {} is {}".format(url, 0))
+# 		# print("No second hop links")
+# 		# exit(0)
+# 		continue
 
+# 	r = sum(check_strings(A_company, reward_urls, " ".join(second_hop_links)))
+# 	if r > 1:
+# 		# print("Return of {} is {}".format(url, r*gamma**2))
+# 		# exit(0)
+# 		path_to_reward += 1
 
+# 	third_hop_links = get_all_links(second_hop_links)
+# 	if len(third_hop_links) == 0:
+# 		# print("Return of {} is {}".format(url, 0))
+# 		# print("No third hop links")
+# 		# exit(0)
+# 		continue
 
+# 	r = sum(check_strings(A_company, reward_urls, " ".join(third_hop_links)))
+# 	if r > 1:
+# 		# print("Return of {} is {}".format(url, r*gamma**3))
+# 		# exit(0)
+# 		path_to_reward += 1
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+# # print("Return of {} is {}".format(url, 0))
+# print("\nPercent with path to reward {}".format(path_to_reward/crawled_pages))
 
 
