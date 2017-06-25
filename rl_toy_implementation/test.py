@@ -127,6 +127,8 @@ backlinks = pd.read_csv('data/backlinks_clean.csv')
 
 # print([p.url for p in storage.get_pages_prefix("http://www.big")])
 
+print(get_reward("www.lassaccounts.co.uk/lakai-c-63_221.html", A_company, reward_urls))
+
 
 
 

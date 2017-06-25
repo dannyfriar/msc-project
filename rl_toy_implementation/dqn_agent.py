@@ -267,10 +267,12 @@ def main():
 
 	##------------------- Initialize Crawler Agent and TF graph/session
 	step_count = 0; pages_crawled = 0; total_reward = 0; terminal_states = 0
-	reward_pages = []; recent_urls = [];
 	found_rewards = ['dummyreward12334']
+	recent_urls = [];
 	A_found = init_automaton(found_rewards)
 	A_found.make_automaton()
+	if os.path.isfile("results/all_urls.csv"):
+		os.remove("results/all_urls.csv")
 
 
 	tf.reset_default_graph()
@@ -306,9 +308,6 @@ def main():
 
 				while step_count < agent.num_steps:
 					step_count += 1
-					with open("results/all_urls.csv", "a") as csv_file:
-						writer = csv.writer(csv_file, delimiter=',')
-						writer.writerow([url])
 
 					# Keep track of recent URLs (to avoid loops)
 					recent_urls.append(url)
@@ -321,7 +320,6 @@ def main():
 					total_reward += r
 					agent.train_results_dict['total_reward'].append(total_reward)
 					if r > 0:
-						reward_pages.append(url)
 						found_rewards.append(reward_urls[reward_url_idx])
 						A_found = init_automaton(found_rewards)
 						A_found.make_automaton()
@@ -339,11 +337,11 @@ def main():
 					# Check if terminal state
 					if r > 0 or len(link_list) == 0:
 						terminal_states += 1
-						steps_without_terminating += 1
 						is_terminal = 1
 						next_state_array = np.zeros(shape=(1, len(words_list)+2))  # doesn't matter what this is
 					else:
 						is_terminal = 0
+						steps_without_terminating += 1
 						next_state_list = [build_url_feature_vector(agent.A, agent.words, l, A_found, found_rewards) for l in link_list]
 						next_state_array = np.array(next_state_list)
 					agent.train_results_dict['terminal_states'].append(terminal_states)
@@ -358,12 +356,16 @@ def main():
 					opt, loss, v_next, v  = sess.run([agent.opt, agent.loss, agent.v_next, agent.v], feed_dict=train_dict)
 					agent.train_results_dict['nn_loss'].append(float(loss))
 
-					# Print progress + for debugging check the value function actually changes
+					# Print progress + save transitions
 					progress_bar(step_count+1, agent.num_steps)
 					if step_count % agent.print_freq == 0:
 						print("\nCrawled {} pages, total reward = {}, # terminal states = {}, remaining rewards = {}"\
 						.format(pages_crawled, total_reward, terminal_states, len(reward_urls)))
 					agent.train_results_dict['pages_crawled'].append(pages_crawled)
+
+					with open("results/all_urls.csv", "a") as csv_file:
+						writer = csv.writer(csv_file, delimiter=',')
+						writer.writerow([url, r, is_terminal])
 
 					# Choose next URL (and check for looping)
 					if is_terminal == 1:
@@ -379,11 +381,7 @@ def main():
 			agent.save_train_results()
 			agent.save_tf_model(sess, saver)
 
-			df = pd.DataFrame(reward_pages, columns=["rewards_pages"])
-			df.to_csv('results/reward_pages.csv', index=False)
-
 	sess.close()
-
 
 
 if __name__ == "__main__":
