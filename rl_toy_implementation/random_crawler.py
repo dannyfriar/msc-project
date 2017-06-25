@@ -142,7 +142,7 @@ def main():
 
 	# Parameters
 	cycle_freq = 50
-	number_crawls = 50000
+	number_crawls = 20000
 	print_freq = 1000
 	term_steps = 50
 
@@ -179,9 +179,9 @@ def main():
 			total_reward += r
 			if r > 0:
 				reward_pages.append(url)
-				# reward_urls.pop(reward_url_idx)
-				# A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
-				# A_company.make_automaton()
+				reward_urls.pop(reward_url_idx)
+				A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
+				A_company.make_automaton()
 				break
 
 			# List of next possible URLs 
