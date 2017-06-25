@@ -89,14 +89,14 @@ def check_strings(A, search_list, string_to_search):
 	output_list[index_list] = 1
 	return output_list.tolist()
 
-def build_url_feature_vector(A_company, search_list, string_to_search, A_found, found_list):
+def build_url_feature_vector(A_company, search_list, string_to_search):
 	"""Presence of search_list words in string, along with length of string"""
 	feature_vector = check_strings(A_company, search_list, string_to_search)
 	feature_vector.append(len(string_to_search))
-	if sum(check_strings(A_found, found_list, string_to_search)) > 0:
-		feature_vector.append(1)
-	else:
-		feature_vector.append(0)
+	# if sum(check_strings(A_found, found_list, string_to_search)) > 0:
+	# 	feature_vector.append(1)
+	# else:
+	# 	feature_vector.append(0)
 	return feature_vector
 
 
@@ -185,8 +185,8 @@ class CrawlerAgent(object):
 		self.A.make_automaton()
 
 		# Tensorflow placeholders and initialize buffer
-		self.state = tf.placeholder(dtype=tf.float32, shape=[None, len(self.words)+2])
-		self.next_state = tf.placeholder(dtype=tf.float32, shape=[None, len(self.words)+2])
+		self.state = tf.placeholder(dtype=tf.float32, shape=[None, len(self.words)+1])
+		self.next_state = tf.placeholder(dtype=tf.float32, shape=[None, len(self.words)+1])
 		self.reward = tf.placeholder(dtype=tf.float32)
 		self.is_terminal = tf.placeholder(dtype=tf.float32)
 		self.build_target_net()
@@ -206,7 +206,7 @@ class CrawlerAgent(object):
 		# idx = tf.where(tf.not_equal(self.state, 0))
 		# sparse_state = tf.SparseTensor(idx, tf.gather_nd(self.state, idx), self.state.get_shape())
 		# self.v = sparse_tensor_dense_matmul(sparse_state, self.weights)
-		self.weights = tf.get_variable("weights", [len(self.words)+2, 1], 
+		self.weights = tf.get_variable("weights", [len(self.words)+1, 1], 
 			initializer = tf.random_normal_initializer(mean=0.0, stddev=0.001))
 		self.bias = tf.get_variable('bias', [1], initializer = tf.constant_initializer(0.001))
 		self.v = tf.matmul(self.state, self.weights) + self.bias
@@ -230,10 +230,10 @@ def main():
 	##-------------------- Parameters
 	cycle_freq = 50
 	term_steps = 50
-	num_steps = 50000  # no. crawled pages before stopping
+	num_steps = 20000  # no. crawled pages before stopping
 	print_freq = 1000
 	epsilon = 0.05
-	gamma = 0.8
+	gamma = 0.99
 	buffer_save_freq = 1000
 	load_buffer = False
 	learning_rate = 0.01
@@ -268,7 +268,7 @@ def main():
 	##------------------- Initialize Crawler Agent and TF graph/session
 	step_count = 0; pages_crawled = 0; total_reward = 0; terminal_states = 0
 	found_rewards = ['dummyreward12334']
-	recent_urls = [];
+	recent_urls = []; reward_pages = []
 	A_found = init_automaton(found_rewards)
 	A_found.make_automaton()
 	if os.path.isfile("results/all_urls.csv"):
@@ -289,7 +289,7 @@ def main():
 			saver = tf.train.import_meta_graph('models/linear_model/tf_model.meta')
 			saver.restore(sess, tf.train.latest_checkpoint('models/linear_model/'))
 			all_vars = tf.get_collection('vars')
-			weights_df = pd.DataFrame.from_dict({'words':words_list+['url_length', 'previous_reward'], 
+			weights_df = pd.DataFrame.from_dict({'words':words_list+['url_length'], 
 				'coef': agent.weights.eval().reshape(-1).tolist()})
 			weights_df.to_csv("results/feature_coefficients.csv", index=False, header=True)
 
@@ -320,15 +320,16 @@ def main():
 					total_reward += r
 					agent.train_results_dict['total_reward'].append(total_reward)
 					if r > 0:
-						found_rewards.append(reward_urls[reward_url_idx])
-						A_found = init_automaton(found_rewards)
-						A_found.make_automaton()
-						reward_urls.pop(reward_url_idx)
-						A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
-						A_company.make_automaton()
+						# found_rewards.append(reward_urls[reward_url_idx])
+						# A_found = init_automaton(found_rewards)
+						# A_found.make_automaton()
+						reward_pages.append(url)
+						# reward_urls.pop(reward_url_idx)
+						# A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
+						# A_company.make_automaton()
 					
 					# Feature representation of current page (state) and links in page
-					state = np.array(build_url_feature_vector(agent.A, agent.words, url, A_found, found_rewards)).reshape(1, -1)
+					state = np.array(build_url_feature_vector(agent.A, agent.words, url)).reshape(1, -1)
 					link_list = get_list_of_links(url)
 					link_list = append_backlinks(url, backlinks, link_list)
 					link_list = set(link_list).intersection(url_set)
@@ -338,11 +339,11 @@ def main():
 					if r > 0 or len(link_list) == 0:
 						terminal_states += 1
 						is_terminal = 1
-						next_state_array = np.zeros(shape=(1, len(words_list)+2))  # doesn't matter what this is
+						next_state_array = np.zeros(shape=(1, len(words_list)+1))  # doesn't matter what this is
 					else:
 						is_terminal = 0
 						steps_without_terminating += 1
-						next_state_list = [build_url_feature_vector(agent.A, agent.words, l, A_found, found_rewards) for l in link_list]
+						next_state_list = [build_url_feature_vector(agent.A, agent.words, l) for l in link_list]
 						next_state_array = np.array(next_state_list)
 					agent.train_results_dict['terminal_states'].append(terminal_states)
 
@@ -380,6 +381,9 @@ def main():
 				.format(pages_crawled, total_reward, terminal_states))
 			agent.save_train_results()
 			agent.save_tf_model(sess, saver)
+
+			df = pd.DataFrame(reward_pages, columns=["rewards_pages"])
+			df.to_csv('results/dqn_reward_pages_backlinks.csv', index=False)
 
 	sess.close()
 
