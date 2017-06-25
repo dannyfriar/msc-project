@@ -223,63 +223,6 @@ def main():
 			# v = sess.run(agent.v, feed_dict={agent.state: s.reshape(1, -1)})
 			# print("Value of URL {} is {}".format(test_url, float(v)))
 
-			# while step_count < num_steps:
-			# 	url = random.choice(list(url_set - set(recent_urls)))  # don't start at recent URL
-			# 	steps_without_terminating = 0
-
-			# 	while step_count < um_steps:
-			# 		step_count += 1
-			# 		progress_bar(step_count+1, num_steps)
-			# 		if step_count % print_freq == 0:
-			# 			print("\nCrawled {} pages, total reward = {}, # terminal states = {}, remaining rewards = {}"\
-			# 				.format(pages_crawled, total_reward, terminal_states, len(reward_urls)))
-			# 		agent.test_results_dict['pages_crawled'].append(pages_crawled)
-			# 		agent.test_results_dict['total_reward'].append(total_reward)
-			# 		agent.test_results_dict['terminal_states'].append(terminal_states)
-
-			# 		# Keep track of recent URLs (to avoid loops)
-			# 		recent_urls.append(url)
-			# 		if len(recent_urls) > agent.cycle_freq:
-			# 			recent_urls = recent_urls[-cycle_freq:]
-
-			# 		# Get rewards
-			# 		r, reward_url_idx = get_reward(url, A_company, reward_urls)
-			# 		pages_crawled += 1
-			# 		total_reward += r
-
-			# 		if r > 0:
-			# 			reward_pages.append(url)
-			# 			reward_urls.pop(reward_url_idx)
-			# 			A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
-			# 			A_company.make_automaton()
-			# 			terminal_states += 1
-			# 			break
-					
-			# 		# Feature representation of current page (state) and links in page
-			# 		link_list = get_list_of_links(url)
-			# 		link_list = append_backlinks(url, backlinks, link_list)
-			# 		link_list = set(link_list).intersection(url_set)
-			# 		link_list = list(link_list - set(recent_urls))
-
-			# 		# Check if terminal state
-			# 		if len(link_list) == 0:
-			# 			terminal_states += 1
-			# 			break
-			# 		else:
-			# 			steps_without_terminating += 1
-			# 			next_state_list = [build_url_feature_vector(agent.A, agent.words, l) for l in link_list]
-			# 			next_state_array = np.array(next_state_list)
-					
-			# 		if steps_without_terminating >= term_steps:
-			# 			break
-
-			# 		# Get value of next states
-			# 		v  = sess.run([agent.v], feed_dict={agent.state: next_state_array})
-			# 		url = link_list[np.argmax(v)]
-
-			# agent.save_test_results()
-
-
 		else:
 			##------------------ Run and train crawler agent -----------------------
 			print("Training DQN agent...")
