@@ -27,6 +27,7 @@ third_hop_links <- setdiff(third_hop_df$V1, c(company_urls, first_hop_links, sec
 length(third_hop_links)
 
 all_links <- c(first_hop_links, second_hop_links, third_hop_links, company_urls)
+
 first_hop_links <- sub("/.*$","", first_hop_links)
 second_hop_links <- sub("/.*$","", second_hop_links)
 third_hop_links <- sub("/.*$","", third_hop_links)
@@ -56,6 +57,7 @@ write.csv(domains_df, "data/domains_endings.csv", row.names=FALSE)
 
 ## Links dataframe
 links_df <- data.frame(url=all_links)
+links_df$hops <- c(rep(1, length(first_hop_links)), rep(2, length(second_hop_links)), rep(3, length(third_hop_links)), rep(0, length(company_urls)))
 links_df$domain <- sub("/.*$","", links_df$url)
 write.csv(links_df, "data/links_dataframe.csv", row.names=FALSE)
 
