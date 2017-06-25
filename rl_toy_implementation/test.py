@@ -28,13 +28,20 @@ def progress_bar(value, endvalue, bar_length=20):
     sys.stdout.write("\rPercent complete: [{0}] {1}%".format(arrow + spaces, int(round(percent * 100))))
     sys.stdout.flush()
 
+
 def get_list_of_links(url, s=storage):
 	"""Use the LMDB database to get a list of links for a given URL"""
 	try:
 		page = s.get_page(url)
+		if page is None:
+			page = s.get_page(url+"/")
+		if page is None:
+			page = s.get_page("www."+url)
+		if page is None:
+			page = s.get_page("www."+url+"/")
+		if page is None:
+			return []
 	except UnicodeError:
-		return []
-	if page is None:
 		return []
 	try:
 		link_list = [l.url.replace("http://", "").replace("https://", "") for l in page.links if l.url[:4] == "http"]
@@ -58,6 +65,14 @@ def get_all_links(url_list):
 	full_link_list = list(set(full_link_list))
 	# print("\nSkipped %d URLs" % len(skipped_urls))
 	return full_link_list
+
+def append_backlinks(url, backlinks, link_list):
+	"""Get the backlink for the URL, returns a string"""
+	backlink =  backlinks[backlinks['url'] == url]['back_url'].tolist()
+	if len(backlink) == 0:
+		return link_list
+	link_list.append(backlink[0])
+	return link_list
 
 
 def init_automaton(string_list):
@@ -98,75 +113,96 @@ links_df = pd.read_csv('data/links_dataframe.csv')
 url_list = links_df['url'].tolist()
 url_list = [l.replace("http://", "").replace("https://", "") for l in url_list if type(l) is str if l[-4:] not in [".png", ".jpg", ".pdf", ".txt"]]
 
-# print(get_list_of_links(url="www.bloomberg.com"))
-url = "murchisonlaw.co.uk"
-first_link_list = get_list_of_links(url)
-second_link_list = first_link_list + get_all_links(first_link_list)
-third_link_list = second_link_list + get_all_links(second_link_list)
-print(len(third_link_list))
-print(third_link_list)
+# Read in backlinks
+backlinks = pd.read_csv('data/backlinks_clean.csv')
 
-print(sum(check_strings(A_company, reward_urls, " ".join(third_link_list))))
+# url = 'gloopa.co.uk/england-commercial-register-letter/#comment-479'
+# link_list = get_list_of_links(url)
+# print(link_list)
+# link_list = append_backlinks(url, backlinks, link_list)
+# print("\n")
+# print(link_list)
+# # print(get_reward('www.dennisandturnbull.com/dt-sterling-boardrooms-business-leaders/', A_company, reward_urls))
 
-# # Get value of a random URL
-# gamma = 0.5
-# loop_range = 1000
-# crawled_pages = 0
-# path_to_reward = 0
 
-# for idx, i in enumerate(range(loop_range)):
-# 	progress_bar(idx, loop_range)
+# print([p.url for p in storage.get_pages_prefix("http://www.big")])
 
-# 	url = random.choice(url_list)
 
-# 	r = sum(check_strings(A_company, reward_urls, url))
-# 	if r > 1:
-# 		# print("Return of {} is {}".format(url, r))
-# 		# exit(0)
-# 		continue
 
-# 	crawled_pages += 1
 
-# 	first_hop_links = get_list_of_links(url)
-# 	if len(first_hop_links) == 0:
-# 		# print("Return of {} is {}".format(url, 0))
-# 		# print("No first hop links")
-# 		# exit(0)
-# 		continue
+# Get value of a random URL
+gamma = 0.5
+loop_range = 1000
+crawled_pages = 0
+path_to_reward = 0
 
-# 	r = sum(check_strings(A_company, reward_urls, " ".join(first_hop_links)))
-# 	if r > 1:
-# 		# print("Return of {} is {}".format(url, gamma*r))
-# 		# exit(0)
-# 		path_to_reward += 1
 
-# 	second_hop_links = get_all_links(first_hop_links)
-# 	if len(second_hop_links) == 0:
-# 		# print("Return of {} is {}".format(url, 0))
-# 		# print("No second hop links")
-# 		# exit(0)
-# 		continue
+for idx, i in enumerate(range(loop_range)):
+	# progress_bar(idx, loop_range)
+	input("Press enter to continue...")
+	url = random.choice(url_list)
+	print(url)
 
-# 	r = sum(check_strings(A_company, reward_urls, " ".join(second_hop_links)))
-# 	if r > 1:
-# 		# print("Return of {} is {}".format(url, r*gamma**2))
-# 		# exit(0)
-# 		path_to_reward += 1
+	print("Checking reward...")
+	r = sum(check_strings(A_company, reward_urls, url))
+	if r >= 1:
+		print("Return of {} is {}".format(url, r))
+		# exit(0)
+		continue
 
-# 	third_hop_links = get_all_links(second_hop_links)
-# 	if len(third_hop_links) == 0:
-# 		# print("Return of {} is {}".format(url, 0))
-# 		# print("No third hop links")
-# 		# exit(0)
-# 		continue
+	# crawled_pages += 1
 
-# 	r = sum(check_strings(A_company, reward_urls, " ".join(third_hop_links)))
-# 	if r > 1:
-# 		# print("Return of {} is {}".format(url, r*gamma**3))
-# 		# exit(0)
-# 		path_to_reward += 1
+	print("First links...")
+	first_hop_links = get_list_of_links(url)
+	first_hop_links = append_backlinks(url, backlinks, first_hop_links)
+	if len(first_hop_links) == 0:
+		print("No first hop links")
+		print("Return of {} is {}".format(url, 0))
+		# exit(0)
+		continue
 
-# # print("Return of {} is {}".format(url, 0))
+	print("Checking reward...")
+	r = sum(check_strings(A_company, reward_urls, " ".join(first_hop_links)))
+	if r >= 1:
+		print("Return of {} is {}".format(url, gamma*r))
+		path_to_reward += 1
+		continue
+
+	print("Second links...")
+	second_hop_links = get_all_links(first_hop_links)
+	backlink_list = backlinks[backlinks['url'].isin(first_hop_links)]['back_url'].tolist()
+	second_hop_links += backlink_list
+
+	if len(second_hop_links) == 0:
+		print("No second hop links")
+		print("Return of {} is {}".format(url, 0))
+		continue
+
+	print("Checking reward...")
+	r = sum(check_strings(A_company, reward_urls, " ".join(second_hop_links)))
+	if r >= 1:
+		print("Return of {} is {}".format(url, r*gamma**2))
+		path_to_reward += 1
+		continue
+
+	print("Third links...")
+	third_hop_links = get_all_links(second_hop_links)
+	backlink_list = backlinks[backlinks['url'].isin(second_hop_links)]['back_url'].tolist()
+	third_hop_links += backlink_list
+
+	if len(third_hop_links) == 0:
+		print("No third hop links")
+		print("Return of {} is {}".format(url, 0))
+		continue
+
+	print("Checking reward...")
+	r = sum(check_strings(A_company, reward_urls, " ".join(third_hop_links)))
+	if r >= 1:
+		print("Return of {} is {}".format(url, r*gamma**3))
+		path_to_reward += 1
+		continue
+
+	print("Return of {} is {}".format(url, 0))
 # print("\nPercent with path to reward {}".format(path_to_reward/crawled_pages))
 
 

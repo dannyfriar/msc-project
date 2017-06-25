@@ -55,9 +55,15 @@ def get_list_of_links(url, s=storage):
 	"""Use the LMDB database to get a list of links for a given URL"""
 	try:
 		page = s.get_page(url)
+		if page is None:
+			page = s.get_page(url+"/")
+		if page is None:
+			page = s.get_page("www."+url)
+		if page is None:
+			page = s.get_page("www."+url+"/")
+		if page is None:
+			return []
 	except UnicodeError:
-		return []
-	if page is None:
 		return []
 	try:
 		link_list = [l.url.replace("http://", "").replace("https://", "") for l in page.links if l.url[:4] == "http"]
@@ -84,6 +90,14 @@ def get_all_links(url_list):
 def lookup_domain_name(links_df, domain_url):
 	"""Returns list of all URLs within domain web site (in database)"""
 	return links_df[links_df['domain'] == domain_url]['url'].tolist()
+
+def append_backlinks(url, backlinks, link_list):
+	"""Get the backlink for the URL, returns a string"""
+	backlink =  backlinks[backlinks['url'].values == url]['back_url'].tolist()
+	if len(backlink) == 0:
+		return link_list
+	link_list.append(backlink[0])
+	return link_list
 
 
 ##-----------------------------------------------------------
@@ -115,6 +129,9 @@ def main():
 	url_list = links_df['url'].tolist()
 	url_list = [l.replace("http://", "").replace("https://", "") for l in url_list if type(l) is str if l[-4:] not in [".png", ".jpg", ".pdf", ".txt"]]
 	url_set = set(url_list)
+
+	# Read in backlinks data
+	backlinks = pd.read_csv('data/backlinks_clean.csv')
 	
 	##-------------------- Random crawling
 	# Results dict for plotting
@@ -125,28 +142,24 @@ def main():
 
 	# Parameters
 	cycle_freq = 50
-	number_crawls = 50000
+	number_crawls = 20000
 	print_freq = 1000
+	term_steps = 50
 
 	# To store
-	pages_crawled = 0
-	total_reward = 0
-	terminal_states = 0
+	pages_crawled = 0; total_reward = 0; terminal_states = 0
 	count_idx = 0
-	recent_urls = []
-	reward_pages = []
-	reward_domain_set = set()
+	recent_urls = []; reward_pages = []
 
 	while count_idx < number_crawls:
 		url = random.choice(list(url_set - set(recent_urls)))  # don't start at recent URL
-		# eps_length = 0
+		steps_without_terminating = 0
 
 		while count_idx < number_crawls:
 			count_idx += 1
-			# eps_length += 1
 
 			# Track progress
-			# progress_bar(count_idx, number_crawls)
+			progress_bar(count_idx, number_crawls)
 			if count_idx % print_freq == 0:
 				print("\nCrawled {} pages, total reward = {}, # terminal states = {}"\
 				.format(pages_crawled, total_reward, terminal_states))
@@ -169,19 +182,19 @@ def main():
 				reward_urls.pop(reward_url_idx)
 				A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
 				A_company.make_automaton()
-				reward_domain = url.split("/", 1)[0]
-				reward_domain_set.update(lookup_domain_name(links_df, reward_domain))
-				url_set = url_set - reward_domain_set
-			# print(eps_length)
 
 			# List of next possible URLs 
 			link_list = get_list_of_links(url)
+			link_list = append_backlinks(url, backlinks, link_list)
 			link_list = set(link_list).intersection(url_set)
 			link_list = list(link_list - set(recent_urls))
 
 			# Choose next URL from list
 			if r > 0 or len(link_list) == 0:
 				terminal_states += 1
+				break
+			steps_without_terminating += 1
+			if steps_without_terminating >= term_steps:
 				break
 			url = random.choice(link_list)
 
@@ -191,10 +204,10 @@ def main():
 
 	##----------------- Save results
 	results_df = pd.DataFrame.from_dict(results_dict)
-	# results_df.to_csv("results/random_crawler_results_new.csv", header=True, index=False)
+	results_df.to_csv("results/random_crawler_results_backlinks.csv", header=True, index=False)
 
 	df = pd.DataFrame(reward_pages, columns=["rewards_pages"])
-	# df.to_csv('results/random_reward_pages.csv', index=False)
+	df.to_csv('results/random_reward_pages_backlinks.csv', index=False)
 
 
 if __name__ == "__main__":

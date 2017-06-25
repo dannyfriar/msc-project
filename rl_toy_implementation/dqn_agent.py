@@ -40,9 +40,15 @@ def get_list_of_links(url, s=storage):
 	"""Use the LMDB database to get a list of links for a given URL"""
 	try:
 		page = s.get_page(url)
+		if page is None:
+			page = s.get_page(url+"/")
+		if page is None:
+			page = s.get_page("www."+url)
+		if page is None:
+			page = s.get_page("www."+url+"/")
+		if page is None:
+			return []
 	except UnicodeError:
-		return []
-	if page is None:
 		return []
 	try:
 		link_list = [l.url.replace("http://", "").replace("https://", "") for l in page.links if l.url[:4] == "http"]
@@ -52,7 +58,15 @@ def get_list_of_links(url, s=storage):
 
 def lookup_domain_name(links_df, domain_url):
 	"""Returns list of all URLs within domain web site (in database)"""
-	return links_df[links_df['domain'] == domain_url]['url'].tolist()
+	return links_df[links_df['domain'].values == domain_url]['url'].tolist()
+
+def append_backlinks(url, backlinks, link_list):
+	"""Get the backlink for the URL, returns a string"""
+	backlink =  backlinks[backlinks['url'].values == url]['back_url'].tolist()
+	if len(backlink) == 0:
+		return link_list
+	link_list.append(backlink[0])
+	return link_list
 
 
 ##-----------------------------------------------------------
@@ -75,12 +89,11 @@ def check_strings(A, search_list, string_to_search):
 	output_list[index_list] = 1
 	return output_list.tolist()
 
-def build_url_feature_vector(A, search_list, string_to_search, reward_domain_set):
-	"""Presence of search_list words in string,
-	along with length of string"""
-	feature_vector = check_strings(A, search_list, string_to_search)
+def build_url_feature_vector(A_company, search_list, string_to_search, A_found, found_list):
+	"""Presence of search_list words in string, along with length of string"""
+	feature_vector = check_strings(A_company, search_list, string_to_search)
 	feature_vector.append(len(string_to_search))
-	if string_to_search in reward_domain_set:
+	if sum(check_strings(A_found, found_list, string_to_search)) > 0:
 		feature_vector.append(1)
 	else:
 		feature_vector.append(0)
@@ -155,7 +168,7 @@ class CrawlerAgent(object):
 	def __init__(self, url_list, reward_urls, word_list,
 		cycle_freq, num_steps, print_freq, gamma=0.99, load_buffer=False,
 		learning_rate=0.01,
-		train_save_location="results/dqn_crawler_train_results_retry.csv",
+		train_save_location="results/dqn_crawler_train_results_backlinks.csv",
 		# train_save_location="results/dqn_crawler_train_results_retry_again.csv",
 		tf_model_folder="models/linear_model"):
 
@@ -216,10 +229,11 @@ class CrawlerAgent(object):
 def main():
 	##-------------------- Parameters
 	cycle_freq = 50
-	num_steps = 50000  # no. crawled pages before stopping
+	term_steps = 50
+	num_steps = 20000  # no. crawled pages before stopping
 	print_freq = 1000
 	epsilon = 0.05
-	gamma = 0.5
+	gamma = 0.9
 	buffer_save_freq = 1000
 	load_buffer = False
 	learning_rate = 0.1
@@ -241,6 +255,9 @@ def main():
 	url_list = [l.replace("http://", "").replace("https://", "") for l in url_list if type(l) is str if l[-4:] not in [".png", ".jpg", ".pdf", ".txt"]]
 	url_set = set(url_list)
 
+	# Read in backlinks data
+	backlinks = pd.read_csv('data/backlinks_clean.csv')
+
 	# Load list of keywords
 	words_list = read_csv_to_list('data/word_feature_list.csv')
 	words_list = [w for w in words_list if w not in stops if len(w) > 1]
@@ -251,7 +268,10 @@ def main():
 	##------------------- Initialize Crawler Agent and TF graph/session
 	step_count = 0; pages_crawled = 0; total_reward = 0; terminal_states = 0
 	reward_pages = []; recent_urls = [];
-	reward_domain_set = set()
+	found_rewards = ['dummyreward12334']
+	A_found = init_automaton(found_rewards)
+	A_found.make_automaton()
+
 
 	tf.reset_default_graph()
 	agent = CrawlerAgent(url_list, reward_urls, words_list, cycle_freq=cycle_freq, 
@@ -282,9 +302,13 @@ def main():
 			##------------------ Run and train crawler agent -----------------------
 			while step_count < agent.num_steps:
 				url = random.choice(list(url_set - set(recent_urls)))  # don't start at recent URL
+				steps_without_terminating = 0
 
 				while step_count < agent.num_steps:
 					step_count += 1
+					with open("results/all_urls.csv", "a") as csv_file:
+						writer = csv.writer(csv_file, delimiter=',')
+						writer.writerow([url])
 
 					# Keep track of recent URLs (to avoid loops)
 					recent_urls.append(url)
@@ -298,27 +322,29 @@ def main():
 					agent.train_results_dict['total_reward'].append(total_reward)
 					if r > 0:
 						reward_pages.append(url)
-						reward_domain_set.update(lookup_domain_name(links_df, reward_urls[reward_url_idx]))
+						found_rewards.append(reward_urls[reward_url_idx])
+						A_found = init_automaton(found_rewards)
+						A_found.make_automaton()
 						reward_urls.pop(reward_url_idx)
 						A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
 						A_company.make_automaton()
-						# removed_reward_indices.append(reward_url_idx)		
-						# url_set = url_set - reward_domain_set
 					
 					# Feature representation of current page (state) and links in page
-					state = np.array(build_url_feature_vector(agent.A, agent.words, url, reward_domain_set)).reshape(1, -1)
+					state = np.array(build_url_feature_vector(agent.A, agent.words, url, A_found, found_rewards)).reshape(1, -1)
 					link_list = get_list_of_links(url)
+					link_list = append_backlinks(url, backlinks, link_list)
 					link_list = set(link_list).intersection(url_set)
 					link_list = list(link_list - set(recent_urls))
 
 					# Check if terminal state
 					if r > 0 or len(link_list) == 0:
 						terminal_states += 1
+						steps_without_terminating += 1
 						is_terminal = 1
 						next_state_array = np.zeros(shape=(1, len(words_list)+2))  # doesn't matter what this is
 					else:
 						is_terminal = 0
-						next_state_list = [np.array(build_url_feature_vector(agent.A, agent.words, l, reward_domain_set)) for l in link_list]
+						next_state_list = [build_url_feature_vector(agent.A, agent.words, l, A_found, found_rewards) for l in link_list]
 						next_state_array = np.array(next_state_list)
 					agent.train_results_dict['terminal_states'].append(terminal_states)
 
@@ -332,17 +358,7 @@ def main():
 					opt, loss, v_next, v  = sess.run([agent.opt, agent.loss, agent.v_next, agent.v], feed_dict=train_dict)
 					agent.train_results_dict['nn_loss'].append(float(loss))
 
-					# # Update buffer
-					# agent.replay_buffer.update(state, next_state_array, r, is_terminal)
-					# if step_count % buffer_save_freq == 0:
-					# 	agent.replay_buffer.save()
-
 					# Print progress + for debugging check the value function actually changes
-					if step_count == 1:
-						start_url = url
-						start_state = state
-						print("{} has value {}".format(start_url, float(v)))
-
 					progress_bar(step_count+1, agent.num_steps)
 					if step_count % agent.print_freq == 0:
 						print("\nCrawled {} pages, total reward = {}, # terminal states = {}, remaining rewards = {}"\
@@ -351,6 +367,8 @@ def main():
 
 					# Choose next URL (and check for looping)
 					if is_terminal == 1:
+						break
+					if steps_without_terminating >= term_steps:  # to prevent cycles
 						break
 					a = epsilon_greedy(epsilon, v_next)
 					url = link_list[a]
@@ -363,9 +381,6 @@ def main():
 
 			df = pd.DataFrame(reward_pages, columns=["rewards_pages"])
 			df.to_csv('results/reward_pages.csv', index=False)
-
-			v = sess.run(agent.v, feed_dict={agent.state: start_state.reshape(1, -1)})
-			print("{} now has value {}".format(start_url, float(v)))
 
 	sess.close()
 
