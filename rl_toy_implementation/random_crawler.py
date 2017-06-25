@@ -17,7 +17,6 @@ storage = StorageEngine("/nvme/webcache/")
 ##-----------------------------------------------------------
 ##-------- Miscellaneous Functions --------------------------
 def progress_bar(value, endvalue, bar_length=20):
-    """Print progress bar to the console"""
     percent = float(value) / endvalue
     arrow = '-' * int(round(percent * bar_length)-1) + '>'
     spaces = ' ' * (bar_length - len(arrow))
@@ -38,8 +37,7 @@ def init_automaton(string_list):
 	return A
 
 def check_strings(A, search_list, string_to_search):
-	"""Use Aho Corasick algorithm to produce boolean list indicating
-	prescence of strings within a longer string"""
+	"""Aho Corasick algorithm, return boolean list of strings within longer string"""
 	index_list = []
 	for item in A.iter(string_to_search):
 		index_list.append(item[1][0])
@@ -47,7 +45,6 @@ def check_strings(A, search_list, string_to_search):
 	output_list = np.array([0] * len(search_list))
 	output_list[index_list] = 1
 	return output_list.tolist()
-
 
 ##-----------------------------------------------------------
 ##-------- Get links from LMDB data functions ---------------
@@ -71,34 +68,17 @@ def get_list_of_links(url, s=storage):
 		return []
 	return link_list
 
-def get_all_links(url_list):
-	"""Get all links from a list of URLs"""
-	full_link_list = []
-	skipped_urls = []
-	for idx, url in enumerate(url_list):
-		# progress_bar(idx+1, len(url_list))
-		try:
-			link_list = get_list_of_links(url)
-		except (UnicodeError, IndexError):
-			skipped_urls.append(url)
-		full_link_list = full_link_list + link_list
-	full_link_list = full_link_list + url_list
-	full_link_list = list(set(full_link_list))
-	# print("\nSkipped %d URLs" % len(skipped_urls))
-	return full_link_list
-
 def lookup_domain_name(links_df, domain_url):
 	"""Returns list of all URLs within domain web site (in database)"""
 	return links_df[links_df['domain'] == domain_url]['url'].tolist()
 
 def append_backlinks(url, backlinks, link_list):
-	"""Get the backlink for the URL, returns a string"""
+	"""Get the backlink for the URL, returns a string URL"""
 	backlink =  backlinks[backlinks['url'].values == url]['back_url'].tolist()
 	if len(backlink) == 0:
 		return link_list
 	link_list.append(backlink[0])
 	return link_list
-
 
 ##-----------------------------------------------------------
 ##-------- RL Functions -------------------------------------
@@ -109,7 +89,6 @@ def get_reward(url, A_company, company_urls):
 		reward_url_idx = np.nonzero(idx_list)[0][0]
 		return 1, reward_url_idx
 	return 0, None
-
 
 ##-----------------------------------------------------------
 ##-----------------------------------------------------------
@@ -134,33 +113,27 @@ def main():
 	backlinks = pd.read_csv('data/backlinks_clean.csv')
 	
 	##-------------------- Random crawling
-	# Results dict for plotting
-	results_dict = OrderedDict()
-	results_dict['pages_crawled'] = []
-	results_dict['total_reward'] = []
-	results_dict['terminal_states'] = [] 
-
-	# Parameters
 	cycle_freq = 50
-	number_crawls = 20000
+	number_crawls = 50000
 	print_freq = 1000
 	term_steps = 50
 
-	# To store
-	pages_crawled = 0; total_reward = 0; terminal_states = 0
-	count_idx = 0
+	# To store data
+	results_dict = OrderedDict([('pages_crawled', []), ('total_reward', []), ('terminal_states', [])])
+	pages_crawled = 0; total_reward = 0; terminal_states = 0; num_steps = 0
 	recent_urls = []; reward_pages = []
+	reward_domain_set = set()
 
-	while count_idx < number_crawls:
+	while num_steps < number_crawls:
 		url = random.choice(list(url_set - set(recent_urls)))  # don't start at recent URL
 		steps_without_terminating = 0
 
-		while count_idx < number_crawls:
-			count_idx += 1
+		while num_steps < number_crawls:
+			num_steps += 1
 
 			# Track progress
-			progress_bar(count_idx, number_crawls)
-			if count_idx % print_freq == 0:
+			progress_bar(num_steps, number_crawls)
+			if num_steps % print_freq == 0:
 				print("\nCrawled {} pages, total reward = {}, # terminal states = {}"\
 				.format(pages_crawled, total_reward, terminal_states))
 
@@ -179,6 +152,7 @@ def main():
 			total_reward += r
 			if r > 0:
 				reward_pages.append(url)
+				reward_domain_set.update(lookup_domain_name(links_df, reward_urls[reward_url_idx]))
 				reward_urls.pop(reward_url_idx)
 				A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
 				A_company.make_automaton()
@@ -200,8 +174,7 @@ def main():
 			url = random.choice(link_list)
 
 
-	print("\nCrawled {} pages, total reward = {}, # terminal states = {}"\
-		.format(pages_crawled, total_reward, terminal_states))
+	print("\nCrawled {} pages, total reward = {}, # terminal states = {}".format(pages_crawled, total_reward, terminal_states))
 
 	##----------------- Save results
 	results_df = pd.DataFrame.from_dict(results_dict)
