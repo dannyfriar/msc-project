@@ -117,57 +117,12 @@ def epsilon_greedy(epsilon, action_list):
 	else:
 		return random.randint(0, len(action_list)-1)
 
-
-##-----------------------------------------------------------
-##-------- Buffer -------------------------------------------
-class Buffer(object):
-
-	def __init__(self, load_buffer=False, sample_size=50,
-		save_file="data/buffer_data/replay_buffer.pickle"):
-		self.save_file = save_file
-		self.sample_size = sample_size
-
-		if load_buffer == True:
-			with open(self.save_file, 'rb') as f:
-				self.buffer = pickle.load(f)
-		else:
-			self.buffer = OrderedDict()
-			self.buffer['state'] = []
-			self.buffer['next_state'] = []
-			self.buffer['reward'] = []
-			self.buffer['is_terminal'] = []
-
-	def update(self, s, next_s, r, is_terminal):
-		"""Update buffer with new transition (list of tuples)"""
-		self.buffer['state'].append(s)
-		self.buffer['next_state'].append(next_s)
-		self.buffer['reward'].append(r)
-		self.buffer['is_terminal'].append(is_terminal)
-
-	def save(self):
-		"""Write buffer to CSV file"""
-		with open(self.save_file, 'wb') as f:
-			pickle.dump(self.buffer, f, protocol=pickle.HIGHEST_PROTOCOL)
-
-	def sample(self):
-		"""Return a sample (dictionary) from the buffer"""
-		buffer_size = len(self.buffer['reward'])
-		sample_indices = random.sample(range(buffer_size), self.sample_size)
-		sample_dict = {
-			'state': np.array(self.buffer['state'])[sample_indices],
-			'next_state': np.array(self.buffer['next_state'])[sample_indices],
-			'reward': np.array(self.buffer['reward'])[sample_indices],
-			'is_terminal': np.array(self.buffer['is_terminal'])[sample_indices]
-		}
-		return sample_dict
-
 ##-----------------------------------------------------------
 ##-------- DQN Agent ----------------------------------------
 class CrawlerAgent(object):
 
 	def __init__(self, url_list, reward_urls, word_list,
-		cycle_freq, num_steps, print_freq, gamma=0.99, load_buffer=False,
-		learning_rate=0.01,
+		cycle_freq, num_steps, print_freq, gamma=0.99, learning_rate=0.01,
 		train_save_location="results/dqn_crawler_train_results_backlinks.csv",
 		# train_save_location="results/dqn_crawler_train_results_retry_again.csv",
 		test_save_location="results/dqn_crawler_test_results.csv",
@@ -191,7 +146,6 @@ class CrawlerAgent(object):
 		self.reward = tf.placeholder(dtype=tf.float32)
 		self.is_terminal = tf.placeholder(dtype=tf.float32)
 		self.build_target_net()
-		self.replay_buffer = Buffer(load_buffer=load_buffer)
 
 		# Set up train results dict
 		self.train_results_dict = OrderedDict()
@@ -199,7 +153,12 @@ class CrawlerAgent(object):
 		self.train_results_dict['total_reward'] = []
 		self.train_results_dict['terminal_states'] = []
 		self.train_results_dict['nn_loss'] = []
+		self.test_results_dict = OrderedDict()
+		self.test_results_dict['pages_crawled'] = []
+		self.test_results_dict['total_reward'] = []
+		self.test_results_dict['terminal_states'] = []
 		self.train_save_location = train_save_location
+		self.test_save_location = test_save_location
 		self.tf_model_folder = tf_model_folder
 
 	def build_target_net(self):
@@ -221,6 +180,11 @@ class CrawlerAgent(object):
 		train_results_df = pd.DataFrame(self.train_results_dict)
 		train_results_df.to_csv(self.train_save_location, index=False, header=True)
 
+	def save_test_results(self):
+		"""Save train_results_dict as a Pandas dataframe"""
+		test_results_df = pd.DataFrame(self.test_results_dict)
+		test_results_df.to_csv(self.test_save_location, index=False, header=True)
+
 	def save_tf_model(self, tf_session, tf_saver):
 		tf_saver.save(tf_session, "/".join([self.tf_model_folder, "tf_model"]))
 
@@ -231,12 +195,10 @@ def main():
 	##-------------------- Parameters
 	cycle_freq = 50
 	term_steps = 50
-	num_steps = 50000  # no. crawled pages before stopping
+	num_steps = 20000  # no. crawled pages before stopping
 	print_freq = 1000
 	epsilon = 0.1
 	gamma = 0.9
-	buffer_save_freq = 1000
-	load_buffer = False
 	learning_rate = 0.01
 	reload_model = True
 
@@ -275,10 +237,9 @@ def main():
 	if os.path.isfile("results/all_urls.csv"):
 		os.remove("results/all_urls.csv")
 
-
 	tf.reset_default_graph()
 	agent = CrawlerAgent(url_list, reward_urls, words_list, cycle_freq=cycle_freq, 
-		num_steps=num_steps, print_freq=print_freq, gamma=gamma, load_buffer=load_buffer, learning_rate=learning_rate)
+		num_steps=num_steps, print_freq=print_freq, gamma=gamma, learning_rate=learning_rate)
 	init = tf.global_variables_initializer()
 	saver = tf.train.Saver()
 
@@ -290,9 +251,9 @@ def main():
 			saver = tf.train.import_meta_graph('models/linear_model/tf_model.meta')
 			saver.restore(sess, tf.train.latest_checkpoint('models/linear_model/'))
 			all_vars = tf.get_collection('vars')
-			weights_df = pd.DataFrame.from_dict({'words':words_list+['url_length'], 
-				'coef': agent.weights.eval().reshape(-1).tolist()})
-			weights_df.to_csv("results/feature_coefficients.csv", index=False, header=True)
+			# weights_df = pd.DataFrame.from_dict({'words':words_list+['url_length'], 
+			# 	'coef': agent.weights.eval().reshape(-1).tolist()})
+			# weights_df.to_csv("results/feature_coefficients.csv", index=False, header=True)
 
 			# # Test a URL
 			# test_url = "www.yellow-eyedpenguin.com"                                                                                              
@@ -300,64 +261,61 @@ def main():
 			# v = sess.run(agent.v, feed_dict={agent.state: s.reshape(1, -1)})
 			# print("Value of URL {} is {}".format(test_url, float(v)))
 
-			# while step_count < agent.num_steps:
-			# 	url = random.choice(list(url_set - set(recent_urls)))  # don't start at recent URL
-			# 	steps_without_terminating = 0
+			while step_count < agent.num_steps:
+				url = random.choice(list(url_set - set(recent_urls)))  # don't start at recent URL
+				steps_without_terminating = 0
 
-			# 	while step_count < agent.num_steps:
-			# 		step_count += 1
-			# 		print("\nCrawled {} pages, total reward = {}, # terminal states = {}, remaining rewards = {}"\
-			# 			.format(pages_crawled, total_reward, terminal_states, len(reward_urls)))
+				while step_count < agent.num_steps:
+					step_count += 1
+					progress_bar(step_count+1, agent.num_steps)
+					if step_count % agent.print_freq == 0:
+						print("\nCrawled {} pages, total reward = {}, # terminal states = {}, remaining rewards = {}"\
+							.format(pages_crawled, total_reward, terminal_states, len(reward_urls)))
+					agent.test_results_dict['pages_crawled'].append(pages_crawled)
+					agent.test_results_dict['total_reward'].append(total_reward)
+					agent.test_results_dict['terminal_states'].append(terminal_states)
 
-			# 		# Keep track of recent URLs (to avoid loops)
-			# 		recent_urls.append(url)
-			# 		if len(recent_urls) > agent.cycle_freq:
-			# 			recent_urls = recent_urls[-agent.cycle_freq:]
+					# Keep track of recent URLs (to avoid loops)
+					recent_urls.append(url)
+					if len(recent_urls) > agent.cycle_freq:
+						recent_urls = recent_urls[-agent.cycle_freq:]
 
-			# 		# Get rewards
-			# 		r, reward_url_idx = get_reward(url, A_company, reward_urls)
-			# 		pages_crawled += 1
-			# 		total_reward += r
-			# 		agent.train_results_dict['total_reward'].append(total_reward)
+					# Get rewards
+					r, reward_url_idx = get_reward(url, A_company, reward_urls)
+					pages_crawled += 1
+					total_reward += r
 
-			# 		if r > 0:
-			# 			reward_pages.append(url)
-			# 			reward_urls.pop(reward_url_idx)
-			# 			A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
-			# 			A_company.make_automaton()
-			# 			terminal_states += 1
-			# 			break
+					if r > 0:
+						reward_pages.append(url)
+						reward_urls.pop(reward_url_idx)
+						A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
+						A_company.make_automaton()
+						terminal_states += 1
+						break
 					
-			# 		# Feature representation of current page (state) and links in page
-			# 		link_list = get_list_of_links(url)
-			# 		link_list = append_backlinks(url, backlinks, link_list)
-			# 		link_list = set(link_list).intersection(url_set)
-			# 		link_list = list(link_list - set(recent_urls))
+					# Feature representation of current page (state) and links in page
+					link_list = get_list_of_links(url)
+					link_list = append_backlinks(url, backlinks, link_list)
+					link_list = set(link_list).intersection(url_set)
+					link_list = list(link_list - set(recent_urls))
 
-			# 		# Check if terminal state
-			# 		if len(link_list) == 0:
-			# 			terminal_states += 1
-			# 			break
-			# 		else:
-			# 			steps_without_terminating += 1
-			# 			next_state_list = [build_url_feature_vector(agent.A, agent.words, l) for l in link_list]
-			# 			next_state_array = np.array(next_state_list)
-			# 		agent.train_results_dict['terminal_states'].append(terminal_states)
+					# Check if terminal state
+					if len(link_list) == 0:
+						terminal_states += 1
+						break
+					else:
+						steps_without_terminating += 1
+						next_state_list = [build_url_feature_vector(agent.A, agent.words, l) for l in link_list]
+						next_state_array = np.array(next_state_list)
+					
+					if steps_without_terminating >= term_steps:
+						break
 
-			# 		if steps_without_terminating >= term_steps:
-			# 			break
+					# Get value of next states
+					v  = sess.run([agent.v], feed_dict={agent.state: next_state_array})
+					url = link_list[np.argmax(v)]
 
-			# 		# Get value of next states
-			# 		v  = sess.run([agent.v], feed_dict={agent.state: next_state_array})
-			# 		agent.train_results_dict['nn_loss'].append(float(loss))
-			# 		url = link_list[np.argmax(v)]
-
-			# 		# Print progress + save transitions
-			# 		progress_bar(step_count+1, agent.num_steps)
-			# 		if step_count % agent.print_freq == 0:
-			# 			print("\nCrawled {} pages, total reward = {}, # terminal states = {}, remaining rewards = {}"\
-			# 			.format(pages_crawled, total_reward, terminal_states, len(reward_urls)))
-			# 		agent.train_results_dict['pages_crawled'].append(pages_crawled)
+			agent.save_test_results()
 
 
 		else:
