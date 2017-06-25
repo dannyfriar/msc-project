@@ -173,35 +173,25 @@ def main():
 	term_steps = 50
 	num_steps = 50000  # no. crawled pages before stopping
 	print_freq = 1000
-	epsilon = 0.1
+	epsilon = 0.05
 	gamma = 0.9
 	learning_rate = 0.01
-	reload_model = False
+	reload_model = True
 
 	##-------------------- Read in data
-	# # Company i.e. reward URLs
-	# companies_df = pd.read_csv('../data/domains_clean.csv')
-	# companies_df = companies_df[companies_df['vert_code'] <= 69203]
-	# companies_df = companies_df[companies_df['vert_code'] >= 69101]
-	# reward_urls = companies_df['url'].tolist()
-	# reward_urls = [l.replace("http://", "").replace("https://", "").replace("www.", "") for l in reward_urls]
-	A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
-	A_company.make_automaton()
-
-
-	# Read in rest of URls, backlinks data and list of keywords
+	# Read in all URls, backlinks data and list of keywords
 	links_df = pd.read_csv('data/links_dataframe.csv')
 	url_list = links_df['url'].tolist()
 	url_list = [l.replace("http://", "").replace("https://", "") for l in url_list if type(l) is str if l[-4:] not in [".png", ".jpg", ".pdf", ".txt"]]
 	url_set = set(url_list)
-
-	# reward_urls = [l.replace("www.", "") for l in links_df[links_df['hops']==0]['url'].tolist()]
-	# print(len(reward_urls))
-
-
-
 	backlinks = pd.read_csv('data/backlinks_clean.csv')
 	words_list = read_csv_to_list('data/word_feature_list.csv') + read_csv_to_list('data/domains_endings.csv')
+
+	# Read in company URLs
+	reward_urls = [l.replace("www.", "") for l in links_df[links_df['hops']==0]['url'].tolist()]
+	reward_urls = list(set(reward_urls))
+	A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
+	A_company.make_automaton()
 
 	##------------------- Initialize Crawler Agent and TF graph/session
 	step_count = 0; pages_crawled = 0; total_reward = 0; terminal_states = 0
@@ -209,8 +199,6 @@ def main():
 	recent_urls = []; reward_pages = []; reward_domain_set = set()
 	A_found = init_automaton(found_rewards)
 	A_found.make_automaton()
-	if os.path.isfile("results/all_urls.csv"):
-		os.remove("results/all_urls.csv")
 
 	tf.reset_default_graph()
 	agent = CrawlerAgent(words_list, gamma=gamma, learning_rate=learning_rate)
@@ -295,6 +283,9 @@ def main():
 		else:
 			##------------------ Run and train crawler agent -----------------------
 			print("Training DQN agent...")
+			if os.path.isfile("results/all_urls.csv"):
+				os.remove("results/all_urls.csv")
+
 			while step_count < num_steps:
 				url = random.choice(list(url_set - set(recent_urls)))  # don't start at recent URL
 				steps_without_terminating = 0
