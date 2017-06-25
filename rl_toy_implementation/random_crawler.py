@@ -142,7 +142,7 @@ def main():
 
 	# Parameters
 	cycle_freq = 50
-	number_crawls = 20000
+	number_crawls = 50000
 	print_freq = 1000
 	term_steps = 50
 
