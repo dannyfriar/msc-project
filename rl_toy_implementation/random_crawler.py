@@ -142,7 +142,7 @@ def main():
 
 	# Parameters
 	cycle_freq = 50
-	number_crawls = 20000
+	number_crawls = 50000
 	print_freq = 1000
 	term_steps = 50
 
@@ -182,6 +182,7 @@ def main():
 				# reward_urls.pop(reward_url_idx)
 				# A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
 				# A_company.make_automaton()
+				break
 
 			# List of next possible URLs 
 			link_list = get_list_of_links(url)
@@ -190,7 +191,7 @@ def main():
 			link_list = list(link_list - set(recent_urls))
 
 			# Choose next URL from list
-			if r > 0 or len(link_list) == 0:
+			if len(link_list) == 0:
 				terminal_states += 1
 				break
 			steps_without_terminating += 1

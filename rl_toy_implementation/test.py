@@ -127,7 +127,7 @@ backlinks = pd.read_csv('data/backlinks_clean.csv')
 
 # print([p.url for p in storage.get_pages_prefix("http://www.big")])
 
-print(get_reward("www.lassaccounts.co.uk/lakai-c-63_221.html", A_company, reward_urls))
+# print(get_reward("www.lassaccounts.co.uk/lakai-c-63_221.html", A_company, reward_urls))
 
 
 
@@ -142,7 +142,8 @@ path_to_reward = 0
 for idx, i in enumerate(range(loop_range)):
 	# progress_bar(idx, loop_range)
 	input("Press enter to continue...")
-	url = random.choice(url_list)
+	# url = random.choice(url_list)
+	url = "www.yellow-eyedpenguin.com"
 	print(url)
 
 	print("Checking reward...")
