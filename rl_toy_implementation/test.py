@@ -28,6 +28,12 @@ def progress_bar(value, endvalue, bar_length=20):
     sys.stdout.write("\rPercent complete: [{0}] {1}%".format(arrow + spaces, int(round(percent * 100))))
     sys.stdout.flush()
 
+def read_csv_to_list(filename):
+	with open(filename) as f:  # relevant english words
+		reader = csv.reader(f)
+		csv_list = list(reader)
+	return(csv_list[0])
+
 
 def get_list_of_links(url, s=storage):
 	"""Use the LMDB database to get a list of links for a given URL"""
@@ -129,8 +135,13 @@ backlinks = pd.read_csv('data/backlinks_clean.csv')
 
 # print(get_reward("www.lassaccounts.co.uk/lakai-c-63_221.html", A_company, reward_urls))
 
+# url_random_sample = random.sample(url_list, 1000)
+# with open("data/random_url_sample.csv", 'w') as f:
+#     wr = csv.writer(f)
+#     wr.writerows([url_random_sample])
 
-
+# Read random sample of URLs
+url_random_sample = read_csv_to_list('data/random_url_sample.csv')
 
 # Get value of a random URL
 gamma = 0.5
@@ -138,19 +149,15 @@ loop_range = 1000
 crawled_pages = 0
 path_to_reward = 0
 
-
-for idx, i in enumerate(range(loop_range)):
-	# progress_bar(idx, loop_range)
-	input("Press enter to continue...")
+# for idx, i in enumerate(range(loop_range)):
+for idx, url in enumerate(url_random_sample):
+	progress_bar(idx, loop_range)
 	# url = random.choice(url_list)
-	url = "www.yellow-eyedpenguin.com"
-	print(url)
 
 	print("Checking reward...")
 	r = sum(check_strings(A_company, reward_urls, url))
 	if r >= 1:
 		print("Return of {} is {}".format(url, r))
-		# exit(0)
 		continue
 
 	# crawled_pages += 1
@@ -161,7 +168,6 @@ for idx, i in enumerate(range(loop_range)):
 	if len(first_hop_links) == 0:
 		print("No first hop links")
 		print("Return of {} is {}".format(url, 0))
-		# exit(0)
 		continue
 
 	print("Checking reward...")

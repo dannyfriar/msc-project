@@ -119,10 +119,8 @@ def epsilon_greedy(epsilon, action_list):
 ##-------- DQN Agent ----------------------------------------
 class CrawlerAgent(object):
 	def __init__(self, word_list, gamma=0.99, learning_rate=0.01,
-		train_save_location="results/dqn_crawler_train_results_revisit.csv",
-		test_save_location="results/dqn_crawler_test_results.csv",
-		# tf_model_folder="models/linear_model"
-		tf_model_folder="models/linear_model_revisit"):
+		train_save_location="results/target_dqn_results.csv",
+		tf_model_folder="models/target_linear_model"):
 
 		# Set up training parameters and TF placeholders
 		self.gamma = gamma  # discount factor
@@ -136,31 +134,36 @@ class CrawlerAgent(object):
 		self.reward = tf.placeholder(dtype=tf.float32)
 		self.is_terminal = tf.placeholder(dtype=tf.float32)
 		self.build_target_net()
+		self.build_train_net()
 
 		# Train/test results dicts + model saving
 		self.train_results_dict = OrderedDict([('pages_crawled', []), ('total_reward', []), ('terminal_states', []), ('nn_loss', [])])
-		self.test_results_dict = OrderedDict([('pages_crawled', []), ('total_reward', []), ('terminal_states', [])])
 		self.train_save_location = train_save_location
-		self.test_save_location = test_save_location
 		self.tf_model_folder = tf_model_folder
 
 	def build_target_net(self):
+		self.target_weights = tf.get_variable("target_weights", [len(self.words)+1, 1], 
+			initializer=tf.random_normal_initializer(mean=0.0, stddev=0.001))
+		self.target_bias = tf.get_variable('target_bias', [1], initializer=tf.constant_initializer(0.001))
+		self.v_next = tf.matmul(self.next_state, self.target_weights) + self.target_bias
+		self.target = self.reward + (1-self.is_terminal) * self.gamma * tf.stop_gradient(tf.reduce_max(self.v_next))
+
+	def build_train_net(self):
 		self.weights = tf.get_variable("weights", [len(self.words)+1, 1], 
 			initializer=tf.random_normal_initializer(mean=0.0, stddev=0.001))
 		self.bias = tf.get_variable('bias', [1], initializer=tf.constant_initializer(0.001))
 		self.v = tf.matmul(self.state, self.weights) + self.bias
-		self.v_next = tf.matmul(self.next_state, self.weights) + self.bias
-		self.target = self.reward + (1-self.is_terminal) * self.gamma * tf.stop_gradient(tf.reduce_max(self.v_next))
 		self.loss = tf.square(self.target - self.v)/2
 		self.opt = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.loss)
+
+	def update_target_net(self, sess, tf_vars):
+		"""Copy network weights from main net to target net"""
+		sess.run(tf_vars[0].assign(tf_vars[2].value())) # copy weights
+		sess.run(tf_vars[1].assign(tf_vars[3].value())) # copy biases
 		
 	def save_train_results(self):
 		train_results_df = pd.DataFrame(self.train_results_dict)
 		train_results_df.to_csv(self.train_save_location, index=False, header=True)
-
-	def save_test_results(self):
-		test_results_df = pd.DataFrame(self.test_results_dict)
-		test_results_df.to_csv(self.test_save_location, index=False, header=True)
 
 	def save_tf_model(self, tf_session, tf_saver):
 		tf_saver.save(tf_session, "/".join([self.tf_model_folder, "tf_model"]))
@@ -177,7 +180,8 @@ def main():
 	epsilon = 0.05
 	gamma = 0.9
 	learning_rate = 0.01
-	reload_model = True
+	copy_steps = 100
+	reload_model = False
 
 	##-------------------- Read in data
 	# Read in all URls, backlinks data and list of keywords
@@ -211,21 +215,12 @@ def main():
 
 		if reload_model == True:
 			print("Reloading model...")
-			# saver = tf.train.import_meta_graph('models/linear_model/tf_model.meta')
-			# saver.restore(sess, tf.train.latest_checkpoint('models/linear_model/'))
-			saver = tf.train.import_meta_graph('models/linear_model_revisit/tf_model.meta')
-			saver.restore(sess, tf.train.latest_checkpoint('models/linear_model_revisit/'))
+			saver = tf.train.import_meta_graph('models/linear_model/tf_model.meta')
+			saver.restore(sess, tf.train.latest_checkpoint('models/linear_model/'))
 			all_vars = tf.get_collection('vars')
-			weights_df = pd.DataFrame.from_dict({'words':words_list+['url_length'], 
-				'coef': agent.weights.eval().reshape(-1).tolist()})
+			# weights_df = pd.DataFrame.from_dict({'words':words_list+['url_length'], 
+			# 	'coef': agent.weights.eval().reshape(-1).tolist()})
 			# weights_df.to_csv("results/feature_coefficients.csv", index=False, header=True)
-			weights_df.to_csv("results/feature_coefficients_revisit.csv", index=False, header=True)
-
-			# # Test a URL
-			# test_url = "www.yellow-eyedpenguin.com"                                                                                              
-			# s = np.array(build_url_feature_vector(agent.A, agent.words, test_url))
-			# v = sess.run(agent.v, feed_dict={agent.state: s.reshape(1, -1)})
-			# print("Value of URL {} is {}".format(test_url, float(v)))
 
 		else:
 			##------------------ Run and train crawler agent -----------------------
@@ -255,10 +250,10 @@ def main():
 						# A_found = init_automaton(found_rewards)
 						# A_found.make_automaton()
 						reward_pages.append(url)
-						# reward_domain_set.update(lookup_domain_name(links_df, reward_urls[reward_url_idx]))
-						# reward_urls.pop(reward_url_idx)
-						# A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
-						# A_company.make_automaton()
+						reward_domain_set.update(lookup_domain_name(links_df, reward_urls[reward_url_idx]))
+						reward_urls.pop(reward_url_idx)
+						A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
+						A_company.make_automaton()
 					
 					# Feature representation of current page (state) and links in page
 					state = np.array(build_url_feature_vector(agent.A, agent.words, url)).reshape(1, -1)
@@ -287,6 +282,10 @@ def main():
 					opt, loss, v_next  = sess.run([agent.opt, agent.loss, agent.v_next], feed_dict=train_dict)
 					agent.train_results_dict['nn_loss'].append(float(loss))
 
+					# Copy parameters every copy_steps transitions
+					if step_count % copy_steps == 0:
+						agent.update_target_net(sess, tf.trainable_variables())
+
 					# Print progress + save transitions
 					progress_bar(step_count+1, num_steps)
 					if step_count % print_freq == 0:
@@ -313,7 +312,7 @@ def main():
 			agent.save_tf_model(sess, saver)
 
 			df = pd.DataFrame(reward_pages, columns=["rewards_pages"])
-			df.to_csv('results/dqn_reward_pages_revisit.csv', index=False)
+			df.to_csv('results/target_dqn_reward_pages.csv', index=False)
 
 	sess.close()
 

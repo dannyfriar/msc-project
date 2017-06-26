@@ -152,10 +152,10 @@ def main():
 			total_reward += r
 			if r > 0:
 				reward_pages.append(url)
-				reward_domain_set.update(lookup_domain_name(links_df, reward_urls[reward_url_idx]))
-				reward_urls.pop(reward_url_idx)
-				A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
-				A_company.make_automaton()
+				# reward_domain_set.update(lookup_domain_name(links_df, reward_urls[reward_url_idx]))
+				# reward_urls.pop(reward_url_idx)
+				# A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
+				# A_company.make_automaton()
 				break
 
 			# List of next possible URLs 
@@ -178,10 +178,10 @@ def main():
 
 	##----------------- Save results
 	results_df = pd.DataFrame.from_dict(results_dict)
-	results_df.to_csv("results/random_crawler_results_backlinks.csv", header=True, index=False)
+	results_df.to_csv("results/random_crawler_results_revisit.csv", header=True, index=False)
 
 	df = pd.DataFrame(reward_pages, columns=["rewards_pages"])
-	df.to_csv('results/random_reward_pages_backlinks.csv', index=False)
+	df.to_csv('results/random_reward_pages.csv', index=False)
 
 
 if __name__ == "__main__":
