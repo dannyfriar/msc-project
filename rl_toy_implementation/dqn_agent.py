@@ -174,7 +174,7 @@ def main():
 	epsilon = 0.05
 	gamma = 0.90
 	learning_rate = 0.001
-	reload_model = False
+	reload_model = True
 
 	##-------------------- Read in data
 	# # Read in all URls, backlinks data and list of keywords
@@ -216,7 +216,6 @@ def main():
 			saver.restore(sess, tf.train.latest_checkpoint('models/linear_model_revisit/'))
 			all_vars = tf.get_collection('vars')
 			weights_df = pd.DataFrame.from_dict({'words':words_list, 'coef': agent.weights.eval().reshape(-1).tolist()})
-			# weights_df.to_csv("results/feature_coefficients.csv", index=False, header=True)
 			weights_df.to_csv("results/linear_dqn_results/feature_coefficients_revisit.csv", index=False, header=True)
 
 			# # Test a URL
