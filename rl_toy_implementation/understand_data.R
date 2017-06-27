@@ -62,4 +62,8 @@ links_df$domain <- sub("/.*$","", links_df$url)
 write.csv(links_df, "data/links_dataframe.csv", row.names=FALSE)
 
 
+links_df <- links_df[links_df$hops==0, ]
+links_df$hops <- NULL
+links_df$domain <- NULL
+write.csv(links_df, "~/links_data.csv", row.names=FALSE)
 

@@ -3,19 +3,19 @@ library(ggplot2)
 library(grid)
 library(gridExtra)
 library(scales)
+library(zoo)
 
-#-------------------- Read random train results data and plot
-# random_results <- read.csv("results/random_crawler_results_new.csv")
-random_results <- read.csv("results/random_crawler_results_backlinks.csv")
+#-------------------- Read random train results data
+# random_results <- read.csv("results/random_crawler_results_backlinks.csv")
+random_results <- read.csv("results/random_crawler_results/random_crawler_results_revisit.csv")
 random_results$type <- "Random Crawler"
-# dqn_results <- read.csv("results/results_tues_20/dqn_crawler_train_results_50k.csv")
-# dqn_results <- read.csv("results/dqn_crawler_train_results_retry.csv")
 # dqn_results <- read.csv("results/dqn_crawler_train_results_backlinks.csv")
-dqn_results <- read.csv("results/dqn_crawler_test_results.csv")
-dqn_results$type <- "DQN Agent"
+dqn_results <- read.csv("results/linear_dqn_results/dqn_crawler_train_results_revisit.csv")
+# dqn_results <- read.csv("results/dqn_crawler_test_results.csv")
+dqn_results$type <- "Q-Learning Agent"
 
-# df <- rbind(random_results, subset(dqn_results, select=-c(nn_loss)))
-df <- rbind(random_results, dqn_results)
+df <- rbind(random_results, subset(dqn_results, select=-c(nn_loss)))
+# df <- rbind(random_results, dqn_results)
 df$type <- factor(df$type)
 
 ## Reward plot
@@ -23,59 +23,95 @@ g_reward <- ggplot(data=df, aes(x=pages_crawled, y=total_reward, color=type))
 g_reward <- g_reward + geom_line(size=0.9) + labs(x='Pages Crawled', y='Total Reward', color='')
 g_reward <- g_reward + theme(legend.position='top')
 g_reward <- g_reward + scale_x_continuous(labels=comma) + scale_y_continuous(labels=comma)
-g_reward
 
 # ## Terminal states plot
 # g_terminal <- ggplot(data=df, aes(x=pages_crawled, y=terminal_states, color=type)) 
 # g_terminal <- g_terminal + geom_line(size=0.9) + labs(x='Pages Crawled', y='Number Terminal States', color='')
 # g_terminal <- g_terminal + theme(legend.position='top')
 # g_terminal <- g_terminal + scale_x_continuous(labels=comma) + scale_y_continuous(labels=comma)
-# 
-# ## Combine plots
-# # Share legend function
-# grid_arrange_shared_legend <- function(..., nrow = 1, ncol = length(list(...)), position = c("bottom", "right")) {
-#   
-#   plots <- list(...)
-#   position <- match.arg(position)
-#   g <- ggplotGrob(plots[[1]] + theme(legend.position = position))$grobs
-#   legend <- g[[which(sapply(g, function(x) x$name) == "guide-box")]]
-#   lheight <- sum(legend$height)
-#   lwidth <- sum(legend$width)
-#   gl <- lapply(plots, function(x) x + theme(legend.position = "none"))
-#   gl <- c(gl, nrow = nrow, ncol = ncol)
-#   
-#   combined <- switch(position,
-#                      "bottom" = arrangeGrob(do.call(arrangeGrob, gl),
-#                                             legend,
-#                                             ncol = 1,
-#                                             heights = unit.c(unit(1, "npc") - lheight, lheight)),
-#                      "right" = arrangeGrob(do.call(arrangeGrob, gl),
-#                                            legend,
-#                                            ncol = 2,
-#                                            widths = unit.c(unit(1, "npc") - lwidth, lwidth)))
-#   grid.newpage()
-#   grid.arrange(combined)
-#   
-# }
-# 
-# # Combine
-# g <- grid_arrange_shared_legend(g_reward, g_terminal, nrow = 1, ncol = 2)
-# g
-# ggsave(filename="../figures/our_work/dqn_vs_random.png", plot=g, width = 15, height = 10, units = "cm")
+
+##--------------------- Find unique fraction of URLs that the crawler got
+## DQN crawler
+dqn_all_urls <- data.table(read.csv("results/linear_dqn_results/all_urls.csv", header=FALSE))
+names(dqn_all_urls) <- c('url', 'reward', 'is_terminal')
+dqn_all_urls$step <- 1:nrow(dqn_all_urls)
+dqn_all_urls$cum_reward <- cumsum(dqn_all_urls$reward)
+dqn_all_urls$domain <- sapply(dqn_all_urls$url, function(x) sub("/.*$","", x))
+setkey(dqn_all_urls, step)
+
+unique_rewards <- subset(dqn_all_urls[reward==1], select=c(step, domain))
+unique_rewards <- unique_rewards[!duplicated(subset(unique_rewards, select=domain))]
+unique_rewards$unique_reward_count <- 1:nrow(unique_rewards)
+
+unique_rewards$domain <- NULL
+setkey(unique_rewards, step)
+dqn_all_urls <- merge(dqn_all_urls, unique_rewards, all.x=TRUE)
+dqn_all_urls[1]$unique_reward_count <- ifelse(is.na(dqn_all_urls[1]$unique_reward_count), 0, 1)
+dqn_all_urls$unique_reward_count <- na.locf(dqn_all_urls$unique_reward_count)
+dqn_all_urls$is_terminal <- NULL
+
+# Random crawler
+r_all_urls <- data.table(read.csv("results/random_crawler_results/random_all_urls.csv", header=FALSE))
+names(r_all_urls) <- c('url', 'reward')
+r_all_urls$step <- 1:nrow(r_all_urls)
+r_all_urls$cum_reward <- cumsum(r_all_urls$reward)
+r_all_urls$domain <- sapply(r_all_urls$url, function(x) sub("/.*$","", x))
+setkey(r_all_urls, step)
+
+unique_rewards <- subset(r_all_urls[reward==1], select=c(step, domain))
+unique_rewards <- unique_rewards[!duplicated(subset(unique_rewards, select=domain))]
+unique_rewards$unique_reward_count <- 1:nrow(unique_rewards)
+
+unique_rewards$domain <- NULL
+setkey(unique_rewards, step)
+r_all_urls <- merge(r_all_urls, unique_rewards, all.x=TRUE)
+r_all_urls[1]$unique_reward_count <- ifelse(is.na(r_all_urls[1]$unique_reward_count), 0, 1)
+r_all_urls$unique_reward_count <- na.locf(r_all_urls$unique_reward_count)
+
+# Combine and plot
+dqn_all_urls$type <- "Q-learning Agent"
+r_all_urls$type <- "Random Crawler"
+unique_results_df <- rbind(dqn_all_urls, r_all_urls)
+g_uniq <- ggplot(data=unique_results_df, aes(x=step, y=unique_reward_count, color=type))
+g_uniq <- g_uniq + geom_line(size=0.9) + labs(x='Pages Crawled', y='Unique Rewards')
+g_uniq <- g_uniq + theme(legend.position="top")
+g_uniq <- g_uniq + scale_x_continuous(labels=comma) + scale_y_continuous(labels=comma)
 
 
-##---------------------- Plot the slope
-df$obs <- 1:nrow(df)
-df <- df[df$obs %% 500 == 0, ]
-df$slope <- c(0, diff(df$total_reward))
-df[df$slope<0, ]$slope <- 0
-g_slope <- ggplot(data=df, aes(x=pages_crawled, y=slope, color=type)) + geom_line() + facet_grid(type~.)
-g_slope <- g_slope + theme(legend.position='top') + labs(x='Pages Crawled', y='Slope')
-g_slope
 
+##-------------------------------------- Combine plots
+# Share legend function
+grid_arrange_shared_legend <- function(..., nrow = 1, ncol = length(list(...)), position = c("bottom", "right")) {
+  plots <- list(...)
+  position <- match.arg(position)
+  g <- ggplotGrob(plots[[1]] + theme(legend.position = position))$grobs
+  legend <- g[[which(sapply(g, function(x) x$name) == "guide-box")]]
+  lheight <- sum(legend$height)
+  lwidth <- sum(legend$width)
+  gl <- lapply(plots, function(x) x + theme(legend.position = "none"))
+  gl <- c(gl, nrow = nrow, ncol = ncol)
+
+  combined <- switch(position,
+                     "bottom" = arrangeGrob(do.call(arrangeGrob, gl),
+                                            legend,
+                                            ncol = 1,
+                                            heights = unit.c(unit(1, "npc") - lheight, lheight)),
+                     "right" = arrangeGrob(do.call(arrangeGrob, gl),
+                                           legend,
+                                           ncol = 2,
+                                           widths = unit.c(unit(1, "npc") - lwidth, lwidth)))
+  grid.newpage()
+  grid.arrange(combined)
+
+}
+
+# Combine
+g <- grid_arrange_shared_legend(g_reward, g_uniq, nrow = 1, ncol = 2)
+g
+ggsave(filename="../figures/our_work/dqn_vs_random.png", plot=g, width = 15, height = 10, units = "cm")
 
 ##----------------------- Look at feature coefficients
-feature_coefs <- data.table(read.csv("results/feature_coefficients.csv"))
+feature_coefs <- data.table(read.csv("results/linear_dqn_results/feature_coefficients.csv"))
 feature_coefs$coef_mag <- abs(feature_coefs$coef)
 feature_coefs <- feature_coefs[order(-coef_mag)]
 feature_coefs$words <- factor(feature_coefs$words, levels=unique(feature_coefs$words))
@@ -110,19 +146,9 @@ urls[grep("tea", urls)]  # in a lot of cases from "meet the team"
 urls[grep("slaw", urls)]  # from e.g. clarkslaw, menzieslaw
 
 
-##--------------------- Find unique fraction of URLs that the crawler got
-## DQN crawler
-reward_urls <- read.csv("results/dqn_reward_pages_backlinks.csv")
-reward_urls <- as.character(reward_urls$rewards_pages)
-length(unique(sub("/.*$","", reward_urls)))
 
-# Random crawler
-reward_urls <- read.csv("results/random_reward_pages_backlinks.csv")
-# reward_urls$short_url <- sub("/.*$","", as.character(reward_urls$rewards_pages))
-# reward_urls <- subset(reward_urls, select=c('short_url'))
-# reward_urls <- data.table(reward_urls)[, count:=.N, by=short_url]
-reward_urls <- as.character(reward_urls$rewards_pages)
-length(unique(sub("/.*$","", reward_urls)))
+
+
 
 ##-------------------- Read accounts df - debugging
 accounts_df <- read.csv('results/account_results.csv')
