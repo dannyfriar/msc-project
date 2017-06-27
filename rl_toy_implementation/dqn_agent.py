@@ -173,8 +173,8 @@ def main():
 	print_freq = 1000
 	epsilon = 0.05
 	gamma = 0.90
-	learning_rate = 0.005
-	reload_model = True
+	learning_rate = 0.001
+	reload_model = False
 
 	##-------------------- Read in data
 	# # Read in all URls, backlinks data and list of keywords
@@ -227,9 +227,9 @@ def main():
 
 		else:
 			##------------------ Run and train crawler agent -----------------------
-			# print("Training DQN agent...")
-			# if os.path.isfile("results/all_urls.csv"):
-			# 	os.remove("results/all_urls.csv")
+			print("Training DQN agent...")
+			if os.path.isfile("results/all_urls.csv"):
+				os.remove("results/all_urls.csv")
 
 			while step_count < num_steps:
 				url = random.choice(list(url_set - set(recent_urls)))  # don't start at recent URL
