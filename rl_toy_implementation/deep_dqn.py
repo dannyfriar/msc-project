@@ -125,8 +125,8 @@ def epsilon_greedy(epsilon, action_list):
 ##-------- DQN Agent ----------------------------------------
 class CrawlerAgent(object):
 	def __init__(self, words_list, gamma=0.99, learning_rate=0.01,
-		train_save_location="results/deep_dqn_crawler_train_results_revisit.csv",
-		test_save_location="results/deep_dqn_crawler_test_results.csv",
+		train_save_location="results/deep_dqn_results/dqn_crawler_train_results_revisit.csv",
+		test_save_location="results/deep_dqn_results/dqn_crawler_test_results.csv",
 		# tf_model_folder="models/linear_model"
 		tf_model_folder="models/deep_dqn"):
 
@@ -231,10 +231,10 @@ def main():
 			saver = tf.train.import_meta_graph('models/linear_model_revisit/tf_model.meta')
 			saver.restore(sess, tf.train.latest_checkpoint('models/linear_model_revisit/'))
 			all_vars = tf.get_collection('vars')
-			weights_df = pd.DataFrame.from_dict({'words':words_list+['url_length'], 
-				'coef': agent.weights.eval().reshape(-1).tolist()})
+			# weights_df = pd.DataFrame.from_dict({'words':words_list, 
+				# 'coef': agent.weights.eval().reshape(-1).tolist()})
 			# weights_df.to_csv("results/feature_coefficients.csv", index=False, header=True)
-			weights_df.to_csv("results/feature_coefficients_revisit.csv", index=False, header=True)
+			# weights_df.to_csv("results/deep_dqn_results/feature_coefficients_revisit.csv", index=False, header=True)
 
 			# # Test a URL
 			# test_url = "www.yellow-eyedpenguin.com"                                                                                              
@@ -245,6 +245,9 @@ def main():
 		else:
 			##------------------ Run and train crawler agent -----------------------
 			print("Training DQN agent...")
+			if os.path.isfile("results/deep_dqn_results/all_urls.csv"):
+				os.remove("results/deep_dqn_results/all_urls.csv")
+
 			while step_count < num_steps:
 				url = random.choice(list(url_set - set(recent_urls)))  # don't start at recent URL
 				steps_without_terminating = 0
@@ -305,7 +308,7 @@ def main():
 						.format(pages_crawled, total_reward, terminal_states, len(reward_urls)))
 					agent.train_results_dict['pages_crawled'].append(pages_crawled)
 
-					with open("results/all_urls.csv", "a") as csv_file:
+					with open("results/deep_dqn_results/all_urls.csv", "a") as csv_file:
 						writer = csv.writer(csv_file, delimiter=',')
 						writer.writerow([url, r, is_terminal])
 

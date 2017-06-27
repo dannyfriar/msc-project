@@ -124,8 +124,8 @@ def main():
 	recent_urls = []; reward_pages = []
 	reward_domain_set = set()
 
-	if os.path.isfile("results/random_all_urls.csv"):
-		os.remove("results/random_all_urls.csv")
+	if os.path.isfile("results/random_crawler_results/random_all_urls.csv"):
+		os.remove("results/random_crawler_results/random_all_urls.csv")
 
 	while num_steps < number_crawls:
 		url = random.choice(list(url_set - set(recent_urls)))  # don't start at recent URL
@@ -184,10 +184,10 @@ def main():
 
 	##----------------- Save results
 	results_df = pd.DataFrame.from_dict(results_dict)
-	results_df.to_csv("results/random_crawler_results_revisit.csv", header=True, index=False)
+	results_df.to_csv("results/random_crawler_results/random_crawler_results_revisit.csv", header=True, index=False)
 
 	df = pd.DataFrame(reward_pages, columns=["rewards_pages"])
-	df.to_csv('results/random_reward_pages.csv', index=False)
+	df.to_csv('results/random_crawler_results/random_reward_pages.csv', index=False)
 
 
 if __name__ == "__main__":
