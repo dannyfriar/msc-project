@@ -84,20 +84,15 @@ def check_strings(A, search_list, string_to_search):
 	output_list[index_list] = 1
 	return output_list.tolist()
 
-def build_url_feature_vector(A_company, search_list, string_to_search):
-	"""Presence of search_list words in string, along with length of string"""
-	feature_vector = check_strings(A_company, search_list, string_to_search)
-	feature_vector.append(len(string_to_search))
-	# if sum(check_strings(A_found, found_list, string_to_search)) > 0:
-	# 	feature_vector.append(1)
-	# else:
-	# 	feature_vector.append(0)
-	return feature_vector
-
-def build_url_feature_matrix(word_dict, url_list):
+def build_url_feature_matrix(word_dict, url_list, revisit, found_rewards):
 	"""Return 2d numpy array of booleans"""
 	count_vec = CountVectorizer(vocabulary=word_dict)
-	return count_vec.transform(url_list).toarray()
+	feature_matrix = count_vec.transform(url_list).toarray()
+	if revisit == True:
+		return feature_matrix
+	extra_vector = np.array([1 if l in found_rewards else 0 for l in url_list]).reshape(-1, 1)
+	feature_matrix = np.concatenate((feature_matrix, extra_vector), axis=1)
+	return feature_matrix
 
 
 ##-----------------------------------------------------------
@@ -120,15 +115,14 @@ def epsilon_greedy(epsilon, action_list):
 ##-----------------------------------------------------------
 ##-------- DQN Agent ----------------------------------------
 class CrawlerAgent(object):
-	def __init__(self, words_list, train_save_location, tf_model_folder, gamma=0.99, learning_rate=0.01):
+	def __init__(self, weights_shape, train_save_location, tf_model_folder, gamma=0.99, learning_rate=0.01):
 
 		# Set up training parameters and TF placeholders
 		self.gamma = gamma  # discount factor
 		self.learning_rate = learning_rate
-		self.words = words_list
-
-		self.state = tf.placeholder(dtype=tf.float32, shape=[None, len(self.words)])
-		self.next_state = tf.placeholder(dtype=tf.float32, shape=[None, len(self.words)])
+		self.weights_shape = weights_shape
+		self.state = tf.placeholder(dtype=tf.float32, shape=[None, self.weights_shape])
+		self.next_state = tf.placeholder(dtype=tf.float32, shape=[None, self.weights_shape])
 		self.reward = tf.placeholder(dtype=tf.float32)
 		self.is_terminal = tf.placeholder(dtype=tf.float32)
 		self.build_target_net()
@@ -141,7 +135,7 @@ class CrawlerAgent(object):
 		self.tf_model_folder = tf_model_folder
 
 	def build_target_net(self):
-		self.weights = tf.get_variable("weights", [len(self.words), 1], 
+		self.weights = tf.get_variable("weights", [self.weights_shape, 1], 
 			initializer=tf.random_normal_initializer(mean=0.0, stddev=0.001))
 		self.bias = tf.get_variable('bias', [1], initializer=tf.constant_initializer(0.001))
 		self.v = tf.matmul(self.state, self.weights) + self.bias
@@ -179,17 +173,6 @@ def main():
 	learning_rate = 0.001
 	reload_model = True
 
-	if args.run == "no-revisit":
-		all_urls_file = RESULTS_FOLDER + "all_urls.csv"
-		model_save_file = MODEL_FOLDER + "linear_model/"
-		results_save_file = RESULTS_FOLDER + "dqn_crawler_train_results.csv"
-		feature_coefs_save_file = RESULTS_FOLDER + "feature_coefficients.csv"
-	else:
-		all_urls_file = RESULTS_FOLDER + "all_urls_revisit.csv"
-		model_save_file = MODEL_FOLDER + "linear_model_revisit/"
-		results_save_file = RESULTS_FOLDER + "dqn_crawler_train_results_revisit.csv"
-		feature_coefs_save_file = RESULTS_FOLDER + "feature_coefficients_revisit.csv"
-
 	##-------------------- Read in data
 	# # Read in all URls, backlinks data and list of keywords
 	links_df = pd.read_csv('data/links_dataframe.csv')
@@ -201,6 +184,7 @@ def main():
 	# words_list = pd.read_csv("data/punc_split_words_df.csv")['word'].tolist()
 	word_dict = dict(zip(words_list, list(range(len(words_list)))))
 	count_vec = CountVectorizer(vocabulary=word_dict)
+	weights_shape = len(words_list)
 
 	# Read in company URLs
 	reward_urls = [l.replace("www.", "") for l in links_df[links_df['hops']==0]['url'].tolist()]
@@ -208,15 +192,27 @@ def main():
 	A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
 	A_company.make_automaton()
 
+	# Set paths
+	if args.run == "no-revisit":
+		revisit = False
+		weights_shape += 1
+		all_urls_file = RESULTS_FOLDER + "all_urls.csv"
+		model_save_file = MODEL_FOLDER + "linear_model/"
+		results_save_file = RESULTS_FOLDER + "dqn_crawler_train_results.csv"
+		feature_coefs_save_file = RESULTS_FOLDER + "feature_coefficients.csv"
+	else:
+		revisit = True
+		all_urls_file = RESULTS_FOLDER + "all_urls_revisit.csv"
+		model_save_file = MODEL_FOLDER + "linear_model_revisit/"
+		results_save_file = RESULTS_FOLDER + "dqn_crawler_train_results_revisit.csv"
+		feature_coefs_save_file = RESULTS_FOLDER + "feature_coefficients_revisit.csv"
+
 	##------------------- Initialize Crawler Agent and TF graph/session
 	step_count = 0; pages_crawled = 0; total_reward = 0; terminal_states = 0
-	found_rewards = ['dummyreward12334']
-	recent_urls = []; reward_pages = []; reward_domain_set = set()
-	A_found = init_automaton(found_rewards)
-	A_found.make_automaton()
+	recent_urls = []; reward_pages = []; found_rewards = []; reward_domain_set = set()
 
 	tf.reset_default_graph()
-	agent = CrawlerAgent(words_list, results_save_file, model_save_file, gamma=gamma, learning_rate=learning_rate)
+	agent = CrawlerAgent(weights_shape, results_save_file, model_save_file, gamma=gamma, learning_rate=learning_rate)
 	init = tf.global_variables_initializer()
 	saver = tf.train.Saver()
 
@@ -231,11 +227,13 @@ def main():
 			weights_df = pd.DataFrame.from_dict({'words':words_list, 'coef': agent.weights.eval().reshape(-1).tolist()})
 			weights_df.to_csv(feature_coefs_save_file, index=False, header=True)
 
-			# # Test a URL
-			# test_url = "www.yellow-eyedpenguin.com"                                                                                              
-			# s = np.array(build_url_feature_vector(agent.A, agent.words, test_url))
-			# v = sess.run(agent.v, feed_dict={agent.state: s.reshape(1, -1)})
-			# print("Value of URL {} is {}".format(test_url, float(v)))
+			# Test URLs
+			# test_urls = random.sample(set(url_list), 1000)
+			# pd.DataFrame.from_dict({'url':test_urls}).to_csv("data/random_test_url_sample.csv", index=False)
+			test_urls = pd.read_csv("data/random_test_url_sample.csv")['url'].tolist()
+			state_array = build_url_feature_matrix(word_dict, test_urls, revisit, found_rewards)
+			v = sess.run(agent.v, feed_dict={agent.state: state_array}).reshape(-1).tolist()
+			pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv("data/value_test.csv", index=False)
 
 		else:
 			##------------------ Run and train crawler agent -----------------------
@@ -262,17 +260,15 @@ def main():
 					agent.train_results_dict['total_reward'].append(total_reward)
 					if r > 0:
 						reward_pages.append(url)
-						if args.run == "no-revisit":
+						if revisit == False:
 							found_rewards.append(reward_urls[reward_url_idx])
-							A_found = init_automaton(found_rewards)
-							A_found.make_automaton()
 							# reward_domain_set.update(lookup_domain_name(links_df, reward_urls[reward_url_idx]))
 							reward_urls.pop(reward_url_idx)
 							A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
 							A_company.make_automaton()
 					
 					# Feature representation of current page (state) and links in page
-					state = build_url_feature_matrix(words_list, [url])
+					state = build_url_feature_matrix(words_list, [url], revisit, found_rewards)
 					link_list = get_list_of_links(url)
 					link_list = append_backlinks(url, backlinks, link_list)
 					link_list = set(link_list).intersection(url_set)
@@ -282,11 +278,11 @@ def main():
 					if r > 0 or len(link_list) == 0:
 						terminal_states += 1
 						is_terminal = 1
-						next_state_array = np.zeros(shape=(1, len(words_list)))  # doesn't matter what this is
+						next_state_array = np.zeros(shape=(1, weights_shape))  # doesn't matter what this is
 					else:
 						is_terminal = 0
 						steps_without_terminating += 1
-						next_state_array = build_url_feature_matrix(words_list, link_list)
+						next_state_array = build_url_feature_matrix(words_list, link_list, revisit, found_rewards)
 					agent.train_results_dict['terminal_states'].append(terminal_states)
 
 					# Train DQN
