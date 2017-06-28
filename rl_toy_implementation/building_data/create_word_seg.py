@@ -62,7 +62,6 @@ url_list = [l.replace("http://", "").replace("https://", "") for l in url_list i
 # 		pd.DataFrame.from_dict({"word":word_list}).to_csv("../data/punc_split_words.csv", header=True, index=False)
 # 		print("\nRun for {} URLs in time {}".format(idx, time.time()-t0))
 # 	word_list += re.split("["+string.punctuation+"]+", url)
-# print("\n")
 
 # Load in punc split words
 with open("../data/punc_split_words.csv") as f:  # relevant english words
@@ -76,8 +75,8 @@ word_counts.columns = ['word','count']
 word_counts = word_counts[word_counts['count']>1]
 word_counts = word_counts[~word_counts['word'].isin(stops)]
 word_counts = word_counts.sort_values(by="count", ascending=False).reset_index()
-# word_counts = word_counts[word_counts['count'] >= 30]  # Leaving k words
-word_counts.to_csv("../data/punc_split_words.csv", header=True, index=False)
+word_counts = word_counts[word_counts['count'] >= 30]  # Leaving 4k words
+word_counts.to_csv("../data/punc_split_words_df.csv", header=True, index=False)
 
 
 

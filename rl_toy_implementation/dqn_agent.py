@@ -197,7 +197,8 @@ def main():
 	url_list = [l.replace("http://", "").replace("https://", "") for l in url_list if type(l) is str if l[-4:] not in [".png", ".jpg", ".pdf", ".txt"]]
 	url_set = set(url_list)
 	backlinks = pd.read_csv('data/backlinks_clean.csv')
-	words_list = pd.read_csv("data/segmented_words_df.csv")['word'].tolist()
+	# words_list = pd.read_csv("data/segmented_words_df.csv")['word'].tolist()
+	words_list = pd.read_csv("data/punc_split_words_df.csv")['word'].tolist()
 	word_dict = dict(zip(words_list, list(range(len(words_list)))))
 	count_vec = CountVectorizer(vocabulary=word_dict)
 
