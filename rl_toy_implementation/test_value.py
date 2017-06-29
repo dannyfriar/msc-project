@@ -134,7 +134,7 @@ for idx, url in enumerate(test_urls):
 	r = sum(check_strings(A_company, reward_urls, url))
 	if r >= 1:
 		# print("Return of {} is {}".format(url, r))
-		results_dict['true_value'].append(r)
+		results_dict['true_value'].append(1)
 		continue
 
 	# print("First links...")
@@ -151,7 +151,7 @@ for idx, url in enumerate(test_urls):
 	if r >= 1:
 		# print("Return of {} is {}".format(url, gamma*r))
 		# path_to_reward += 1
-		results_dict['true_value'].append(gamma*r)
+		results_dict['true_value'].append(gamma)
 		continue
 
 	# print("Second links...")
@@ -170,7 +170,7 @@ for idx, url in enumerate(test_urls):
 	if r >= 1:
 		# print("Return of {} is {}".format(url, r*gamma**2))
 		# path_to_reward += 1
-		results_dict['true_value'].append(r*gamma**2)
+		results_dict['true_value'].append(gamma**2)
 		continue
 
 	# print("Third links...")
@@ -189,7 +189,7 @@ for idx, url in enumerate(test_urls):
 	if r >= 1:
 		# print("Return of {} is {}".format(url, r*gamma**3))
 		# path_to_reward += 1
-		results_dict['true_value'].append(r*gamma**3)
+		results_dict['true_value'].append(gamma**3)
 		continue
 	else:
 		results_dict['true_value'].append(0)
