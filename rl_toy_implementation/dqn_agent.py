@@ -169,9 +169,9 @@ def main():
 	eps_decay = 2 / num_steps
 	epsilon = start_eps
 	# epsilon = 0.1
-	gamma = 0.9
-	learning_rate = 0.001
-	reload_model = True
+	gamma = 0.5
+	learning_rate = 0.005
+	reload_model = False
 
 	##-------------------- Read in data
 	# # Read in all URls, backlinks data and list of keywords
@@ -224,16 +224,20 @@ def main():
 			saver = tf.train.import_meta_graph(model_save_file+"/tf_model.meta")
 			saver.restore(sess, tf.train.latest_checkpoint(model_save_file))
 			all_vars = tf.get_collection('vars')
-			weights_df = pd.DataFrame.from_dict({'words':words_list, 'coef': agent.weights.eval().reshape(-1).tolist()})
+			if revisit == True:
+				weights_df = pd.DataFrame.from_dict({'words':words_list, 'coef': agent.weights.eval().reshape(-1).tolist()})
+			else:
+				weights_df = pd.DataFrame.from_dict({'words':words_list+['prev_reward'], 
+					'coef': agent.weights.eval().reshape(-1).tolist()})
 			weights_df.to_csv(feature_coefs_save_file, index=False, header=True)
 
-			# Test URLs
-			# test_urls = random.sample(set(url_list), 1000)
-			# pd.DataFrame.from_dict({'url':test_urls}).to_csv("data/random_test_url_sample.csv", index=False)
-			test_urls = pd.read_csv("data/random_test_url_sample.csv")['url'].tolist()
-			state_array = build_url_feature_matrix(word_dict, test_urls, revisit, found_rewards)
-			v = sess.run(agent.v, feed_dict={agent.state: state_array}).reshape(-1).tolist()
-			pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv("data/value_test.csv", index=False)
+			# # Test URLs
+			# # test_urls = random.sample(set(url_list), 1000)
+			# # pd.DataFrame.from_dict({'url':test_urls}).to_csv("data/random_test_url_sample.csv", index=False)
+			# test_urls = pd.read_csv("data/random_test_url_sample.csv")['url'].tolist()
+			# state_array = build_url_feature_matrix(word_dict, test_urls, revisit, found_rewards)
+			# v = sess.run(agent.v, feed_dict={agent.state: state_array}).reshape(-1).tolist()
+			# pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv("data/value_test.csv", index=False)
 
 		else:
 			##------------------ Run and train crawler agent -----------------------
