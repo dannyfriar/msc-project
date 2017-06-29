@@ -169,7 +169,7 @@ def main():
 	epsilon = start_eps
 	gamma = 0.75
 	learning_rate = 0.001
-	reload_model = True
+	reload_model = False
 
 	##-------------------- Read in data
 	# Read in all URls, backlinks data and list of keywords
@@ -297,8 +297,9 @@ def main():
 							agent.state: state, agent.next_state: next_state_array, 
 							agent.reward: r, agent.is_terminal: is_terminal
 					}
-					opt, loss, v_next  = sess.run([agent.opt, agent.loss, agent.v_next], feed_dict=train_dict)
-					agent.train_results_dict['nn_loss'].append(float(loss))
+					# opt, loss, v_next  = sess.run([agent.opt, agent.loss, agent.v_next], feed_dict=train_dict)
+					# agent.train_results_dict['nn_loss'].append(float(loss))
+					v_next  = sess.run([agent.v_next], feed_dict=train_dict)
 
 					# Print progress + save transitions
 					progress_bar(step_count+1, num_steps)
