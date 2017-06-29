@@ -116,8 +116,8 @@ url_list = [l.replace("http://", "").replace("https://", "") for l in url_list i
 backlinks = pd.read_csv('data/backlinks_clean.csv')
 
 # Read random sample of URLs
-test_urls = pd.read_csv("data/random_test_url_sample.csv")['url'].tolist()
-# test_urls = test_urls[:10]
+# test_urls = pd.read_csv("data/random_test_url_sample.csv")['url'].tolist()  # random URLs
+test_urls = pd.read_csv("data/random_visited_urls_sample")['url'].tolist()  # random visited URLs
 
 # Get value of a random URL
 gamma = 0.75
