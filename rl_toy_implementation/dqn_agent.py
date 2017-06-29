@@ -152,7 +152,7 @@ class CrawlerAgent(object):
 	# 	test_results_df.to_csv(self.test_save_location, index=False, header=True)
 
 	def save_tf_model(self, tf_session, tf_saver):
-		tf_saver.save(tf_session, "/".join([self.tf_model_folder, "tf_model"]))
+		tf_saver.save(tf_session, "".join([self.tf_model_folder, "tf_model"]))
 
 
 ##-----------------------------------------------------------
@@ -195,14 +195,14 @@ def main():
 		revisit = False
 		weights_shape += 1
 		all_urls_file = RESULTS_FOLDER + "all_urls.csv"
-		model_save_file = MODEL_FOLDER + "linear_model/"
+		model_save_file = MODEL_FOLDER + "linear_model"
 		results_save_file = RESULTS_FOLDER + "dqn_crawler_train_results.csv"
 		feature_coefs_save_file = RESULTS_FOLDER + "feature_coefficients.csv"
 		test_value_files = RESULTS_FOLDER + "test_value.csv"
 	else:
 		revisit = True
 		all_urls_file = RESULTS_FOLDER + "all_urls_revisit.csv"
-		model_save_file = MODEL_FOLDER + "linear_model_revisit/"
+		model_save_file = MODEL_FOLDER + "linear_model_revisit"
 		results_save_file = RESULTS_FOLDER + "dqn_crawler_train_results_revisit.csv"
 		feature_coefs_save_file = RESULTS_FOLDER + "feature_coefficients_revisit.csv"
 		test_value_files = RESULTS_FOLDER + "test_value_revisit.csv"

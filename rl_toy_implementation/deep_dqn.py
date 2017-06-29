@@ -233,13 +233,13 @@ def main():
 		revisit = False
 		weights_shape += 1
 		all_urls_file = RESULTS_FOLDER + "all_urls.csv"
-		model_save_file = MODEL_FOLDER + "deep_model/"
+		model_save_file = MODEL_FOLDER + "deep_model"
 		results_save_file = RESULTS_FOLDER + "dqn_crawler_train_results.csv"
 		feature_coefs_save_file = RESULTS_FOLDER + "feature_coefficients.csv"
 	else:
 		revisit = True
 		all_urls_file = RESULTS_FOLDER + "all_urls_revisit.csv"
-		model_save_file = MODEL_FOLDER + "deep_model_revisit/"
+		model_save_file = MODEL_FOLDER + "deep_model_revisit"
 		results_save_file = RESULTS_FOLDER + "dqn_crawler_train_results_revisit.csv"
 		feature_coefs_save_file = RESULTS_FOLDER + "feature_coefficients_revisit.csv"
 
@@ -257,7 +257,7 @@ def main():
 
 		if reload_model == True:
 			print("Reloading model...")
-			saver = tf.train.import_meta_graph(model_save_file+"/tf_model.meta")
+			saver = tf.train.import_meta_graph(model_save_file+"tf_model.meta")
 			saver.restore(sess, tf.train.latest_checkpoint(model_save_file))
 			all_vars = tf.get_collection('vars')
 			# weights_df = pd.DataFrame.from_dict({'words':words_list, 
