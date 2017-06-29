@@ -116,7 +116,6 @@ def epsilon_greedy(epsilon, action_list):
 ##-------- DQN Agent ----------------------------------------
 class CrawlerAgent(object):
 	def __init__(self, weights_shape, train_save_location, tf_model_folder, gamma=0.99, learning_rate=0.01):
-
 		# Set up training parameters and TF placeholders
 		self.gamma = gamma  # discount factor
 		self.learning_rate = learning_rate
@@ -169,12 +168,12 @@ def main():
 	eps_decay = 2 / num_steps
 	epsilon = start_eps
 	# epsilon = 0.1
-	gamma = 0.5
-	learning_rate = 0.005
-	reload_model = False
+	gamma = 0.9
+	learning_rate = 0.001
+	reload_model = True
 
 	##-------------------- Read in data
-	# # Read in all URls, backlinks data and list of keywords
+	# Read in all URls, backlinks data and list of keywords
 	links_df = pd.read_csv('data/links_dataframe.csv')
 	url_list = links_df['url'].tolist()
 	url_list = [l.replace("http://", "").replace("https://", "") for l in url_list if type(l) is str if l[-4:] not in [".png", ".jpg", ".pdf", ".txt"]]
@@ -266,7 +265,7 @@ def main():
 						reward_pages.append(url)
 						if revisit == False:
 							found_rewards.append(reward_urls[reward_url_idx])
-							# reward_domain_set.update(lookup_domain_name(links_df, reward_urls[reward_url_idx]))
+							reward_domain_set.update(lookup_domain_name(links_df, reward_urls[reward_url_idx]))
 							reward_urls.pop(reward_url_idx)
 							A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
 							A_company.make_automaton()

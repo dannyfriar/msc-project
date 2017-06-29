@@ -4,6 +4,7 @@ import re
 import csv
 import time
 import random
+import argparse
 import ahocorasick
 import numpy as np
 import pandas as pd
@@ -14,6 +15,8 @@ from collections import OrderedDict
 from evolutionai import StorageEngine
 storage = StorageEngine("/nvme/webcache/")
 
+RESULTS_FOLDER = "results/random_crawler_results/"
+
 ##-----------------------------------------------------------
 ##-------- Miscellaneous Functions --------------------------
 def progress_bar(value, endvalue, bar_length=20):
@@ -22,12 +25,6 @@ def progress_bar(value, endvalue, bar_length=20):
     spaces = ' ' * (bar_length - len(arrow))
     sys.stdout.write("\rPercent complete: [{0}] {1}%".format(arrow + spaces, int(round(percent * 100))))
     sys.stdout.flush()
-
-def load_csv_to_list(file_name):
-	"""Loads single column CSV as list"""
-	with open(file_name) as f:
-		reader = csv.reader(f)
-		return list(reader)[0]
 
 def init_automaton(string_list):
 	"""Make Aho-Corasick automaton from a list of strings"""
@@ -111,6 +108,12 @@ def main():
 
 	# Read in backlinks data
 	backlinks = pd.read_csv('data/backlinks_clean.csv')
+
+	# Set paths
+	if args.run == "no-revisit":
+		all_urls_file = RESULTS_FOLDER + "all_urls.csv"
+	else:
+		all_urls_file = RESULTS_FOLDER + "all_urls_revisit.csv"
 	
 	##-------------------- Random crawling
 	cycle_freq = 50
@@ -124,8 +127,8 @@ def main():
 	recent_urls = []; reward_pages = []
 	reward_domain_set = set()
 
-	if os.path.isfile("results/random_crawler_results/random_all_urls.csv"):
-		os.remove("results/random_crawler_results/random_all_urls.csv")
+	if os.path.isfile(all_urls_file):
+		os.remove(all_urls_file)
 
 	while num_steps < number_crawls:
 		url = random.choice(list(url_set - set(recent_urls)))  # don't start at recent URL
@@ -137,8 +140,8 @@ def main():
 			# Track progress
 			progress_bar(num_steps, number_crawls)
 			if num_steps % print_freq == 0:
-				print("\nCrawled {} pages, total reward = {}, # terminal states = {}"\
-				.format(pages_crawled, total_reward, terminal_states))
+				print("\nCrawled {} pages, total reward = {}, # terminal states = {}, remaining rewards = {}"\
+					.format(pages_crawled, total_reward, terminal_states, len(reward_urls)))
 
 			results_dict['pages_crawled'].append(pages_crawled)
 			results_dict['total_reward'].append(total_reward)
@@ -153,15 +156,16 @@ def main():
 			r, reward_url_idx = get_reward(url, A_company, reward_urls)
 			pages_crawled += 1
 			total_reward += r
-			with open("results/random_all_urls.csv", "a") as csv_file:
+			with open(all_urls_file, "a") as csv_file:
 				writer = csv.writer(csv_file, delimiter=',')
 				writer.writerow([url, r])
 			if r > 0:
-				reward_pages.append(url)
-				# reward_domain_set.update(lookup_domain_name(links_df, reward_urls[reward_url_idx]))
-				# reward_urls.pop(reward_url_idx)
-				# A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
-				# A_company.make_automaton()
+				if args.run == "no-revisit":
+					reward_pages.append(url)
+					reward_domain_set.update(lookup_domain_name(links_df, reward_urls[reward_url_idx]))
+					reward_urls.pop(reward_url_idx)
+					A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
+					A_company.make_automaton()
 				break
 
 			# List of next possible URLs 
@@ -180,15 +184,8 @@ def main():
 			url = random.choice(link_list)
 
 
-	print("\nCrawled {} pages, total reward = {}, # terminal states = {}".format(pages_crawled, total_reward, terminal_states))
-
-	##----------------- Save results
-	results_df = pd.DataFrame.from_dict(results_dict)
-	results_df.to_csv("results/random_crawler_results/random_crawler_results_revisit.csv", header=True, index=False)
-
-	df = pd.DataFrame(reward_pages, columns=["rewards_pages"])
-	df.to_csv('results/random_crawler_results/random_reward_pages.csv', index=False)
-
-
 if __name__ == "__main__":
+	parser = argparse.ArgumentParser()
+	parser.add_argument('-r', '--run', default='')
+	args = parser.parse_args()
 	main()

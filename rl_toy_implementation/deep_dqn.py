@@ -20,6 +20,9 @@ storage = StorageEngine("/nvme/webcache/")
 from nltk.corpus import stopwords, words, names
 stops = stopwords.words("english")
 
+RESULTS_FOLDER = "results/linear_dqn_results/"
+MODEL_FOLDER = "models/"
+
 ##-----------------------------------------------------------
 ##-------- Miscellaneous Functions --------------------------
 def progress_bar(value, endvalue, bar_length=20):
@@ -88,20 +91,15 @@ def check_strings(A, search_list, string_to_search):
 	output_list[index_list] = 1
 	return output_list.tolist()
 
-def build_url_feature_vector(A_company, search_list, string_to_search):
-	"""Presence of search_list words in string, along with length of string"""
-	feature_vector = check_strings(A_company, search_list, string_to_search)
-	feature_vector.append(len(string_to_search))
-	# if sum(check_strings(A_found, found_list, string_to_search)) > 0:
-	# 	feature_vector.append(1)
-	# else:
-	# 	feature_vector.append(0)
-	return feature_vector
-
-def build_url_feature_matrix(word_dict, url_list):
+def build_url_feature_matrix(word_dict, url_list, revisit, found_rewards):
 	"""Return 2d numpy array of booleans"""
 	count_vec = CountVectorizer(vocabulary=word_dict)
-	return count_vec.transform(url_list).toarray()
+	feature_matrix = count_vec.transform(url_list).toarray()
+	if revisit == True:
+		return feature_matrix
+	extra_vector = np.array([1 if l in found_rewards else 0 for l in url_list]).reshape(-1, 1)
+	feature_matrix = np.concatenate((feature_matrix, extra_vector), axis=1)
+	return feature_matrix
 
 
 ##-----------------------------------------------------------
@@ -124,19 +122,13 @@ def epsilon_greedy(epsilon, action_list):
 ##-----------------------------------------------------------
 ##-------- DQN Agent ----------------------------------------
 class CrawlerAgent(object):
-	def __init__(self, words_list, gamma=0.99, learning_rate=0.01,
-		train_save_location="results/deep_dqn_results/dqn_crawler_train_results_revisit.csv",
-		test_save_location="results/deep_dqn_results/dqn_crawler_test_results.csv",
-		# tf_model_folder="models/linear_model"
-		tf_model_folder="models/deep_dqn"):
-
+	def __init__(self, weights_shape, train_save_location, tf_model_folder, gamma=0.99, learning_rate=0.01):
 		# Set up training parameters and TF placeholders
 		self.gamma = gamma  # discount factor
 		self.learning_rate = learning_rate
-		self.words = words_list
-
-		self.state = tf.placeholder(dtype=tf.float32, shape=[None, len(self.words)])
-		self.next_state = tf.placeholder(dtype=tf.float32, shape=[None, len(self.words)])
+		self.weights_shape = weights_shape
+		self.state = tf.placeholder(dtype=tf.float32, shape=[None, self.weights_shape])
+		self.next_state = tf.placeholder(dtype=tf.float32, shape=[None, self.weights_shape])
 		self.reward = tf.placeholder(dtype=tf.float32)
 		self.is_terminal = tf.placeholder(dtype=tf.float32)
 		self.build_target_net()
@@ -145,11 +137,11 @@ class CrawlerAgent(object):
 		self.train_results_dict = OrderedDict([('pages_crawled', []), ('total_reward', []), ('terminal_states', []), ('nn_loss', [])])
 		self.test_results_dict = OrderedDict([('pages_crawled', []), ('total_reward', []), ('terminal_states', [])])
 		self.train_save_location = train_save_location
-		self.test_save_location = test_save_location
+		# self.test_save_location = test_save_location
 		self.tf_model_folder = tf_model_folder
 
 	def build_target_net(self):
-		self.w1 = tf.get_variable("w1", [len(self.words), 6000], initializer=tf.random_normal_initializer(mean=0.0, stddev=0.001))
+		self.w1 = tf.get_variable("w1", [self.weights_shape, 6000], initializer=tf.random_normal_initializer(mean=0.0, stddev=0.001))
 		self.w2 = tf.get_variable("w2", [6000, 300], initializer=tf.random_normal_initializer(mean=0.0, stddev=0.001))
 		self.w3 = tf.get_variable("w3", [300, 1], initializer=tf.random_normal_initializer(mean=0.0, stddev=0.001))
 		self.b1 = tf.get_variable('b1', [6000], initializer=tf.constant_initializer(0.001))
@@ -186,10 +178,14 @@ def main():
 	term_steps = 50
 	num_steps = 50000  # no. crawled pages before stopping
 	print_freq = 1000
-	epsilon = 0.05
-	gamma = 0.99
-	learning_rate = 0.005
-	reload_model = False
+	start_eps = 0.2
+	end_eps = 0.05
+	eps_decay = 2 / num_steps
+	epsilon = start_eps
+	# epsilon = 0.1
+	gamma = 0.9
+	learning_rate = 0.001
+	reload_model = True
 
 	##-------------------- Read in data
 	# Read in all URls, backlinks data and list of keywords
@@ -198,10 +194,11 @@ def main():
 	url_list = [l.replace("http://", "").replace("https://", "") for l in url_list if type(l) is str if l[-4:] not in [".png", ".jpg", ".pdf", ".txt"]]
 	url_set = set(url_list)
 	backlinks = pd.read_csv('data/backlinks_clean.csv')
-	words_list = read_csv_to_list('data/word_feature_list.csv') + read_csv_to_list('data/domains_endings.csv')
-	words_list = list(set(words_list))
+	words_list = pd.read_csv("data/segmented_words_df.csv")['word'].tolist()
+	# words_list = pd.read_csv("data/punc_split_words_df.csv")['word'].tolist()
 	word_dict = dict(zip(words_list, list(range(len(words_list)))))
 	count_vec = CountVectorizer(vocabulary=word_dict)
+	weights_shape = len(words_list)
 
 	# Read in company URLs
 	reward_urls = [l.replace("www.", "") for l in links_df[links_df['hops']==0]['url'].tolist()]
@@ -209,15 +206,27 @@ def main():
 	A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
 	A_company.make_automaton()
 
+	# Set paths
+	if args.run == "no-revisit":
+		revisit = False
+		weights_shape += 1
+		all_urls_file = RESULTS_FOLDER + "all_urls.csv"
+		model_save_file = MODEL_FOLDER + "deep_model/"
+		results_save_file = RESULTS_FOLDER + "dqn_crawler_train_results.csv"
+		feature_coefs_save_file = RESULTS_FOLDER + "feature_coefficients.csv"
+	else:
+		revisit = True
+		all_urls_file = RESULTS_FOLDER + "all_urls_revisit.csv"
+		model_save_file = MODEL_FOLDER + "deep_model_revisit/"
+		results_save_file = RESULTS_FOLDER + "dqn_crawler_train_results_revisit.csv"
+		feature_coefs_save_file = RESULTS_FOLDER + "feature_coefficients_revisit.csv"
+
 	##------------------- Initialize Crawler Agent and TF graph/session
 	step_count = 0; pages_crawled = 0; total_reward = 0; terminal_states = 0
-	found_rewards = ['dummyreward12334']
-	recent_urls = []; reward_pages = []; reward_domain_set = set()
-	A_found = init_automaton(found_rewards)
-	A_found.make_automaton()
+	recent_urls = []; reward_pages = []; found_rewards = []; reward_domain_set = set()
 
 	tf.reset_default_graph()
-	agent = CrawlerAgent(words_list, gamma=gamma, learning_rate=learning_rate)
+	agent = CrawlerAgent(weights_shape, results_save_file, model_save_file, gamma=gamma, learning_rate=learning_rate)
 	init = tf.global_variables_initializer()
 	saver = tf.train.Saver()
 
@@ -226,27 +235,19 @@ def main():
 
 		if reload_model == True:
 			print("Reloading model...")
-			# saver = tf.train.import_meta_graph('models/linear_model/tf_model.meta')
-			# saver.restore(sess, tf.train.latest_checkpoint('models/linear_model/'))
-			saver = tf.train.import_meta_graph('models/linear_model_revisit/tf_model.meta')
-			saver.restore(sess, tf.train.latest_checkpoint('models/linear_model_revisit/'))
+			saver = tf.train.import_meta_graph(model_save_file+"/tf_model.meta")
+			saver.restore(sess, tf.train.latest_checkpoint(model_save_file))
 			all_vars = tf.get_collection('vars')
 			# weights_df = pd.DataFrame.from_dict({'words':words_list, 
 				# 'coef': agent.weights.eval().reshape(-1).tolist()})
 			# weights_df.to_csv("results/feature_coefficients.csv", index=False, header=True)
 			# weights_df.to_csv("results/deep_dqn_results/feature_coefficients_revisit.csv", index=False, header=True)
 
-			# # Test a URL
-			# test_url = "www.yellow-eyedpenguin.com"                                                                                              
-			# s = np.array(build_url_feature_vector(agent.A, agent.words, test_url))
-			# v = sess.run(agent.v, feed_dict={agent.state: s.reshape(1, -1)})
-			# print("Value of URL {} is {}".format(test_url, float(v)))
-
 		else:
 			##------------------ Run and train crawler agent -----------------------
 			print("Training DQN agent...")
-			if os.path.isfile("results/deep_dqn_results/all_urls.csv"):
-				os.remove("results/deep_dqn_results/all_urls.csv")
+			if os.path.isfile(all_urls_file):
+				os.remove(all_urls_file)
 
 			while step_count < num_steps:
 				url = random.choice(list(url_set - set(recent_urls)))  # don't start at recent URL
@@ -266,14 +267,13 @@ def main():
 					total_reward += r
 					agent.train_results_dict['total_reward'].append(total_reward)
 					if r > 0:
-						# found_rewards.append(reward_urls[reward_url_idx])
-						# A_found = init_automaton(found_rewards)
-						# A_found.make_automaton()
 						reward_pages.append(url)
-						# reward_domain_set.update(lookup_domain_name(links_df, reward_urls[reward_url_idx]))
-						# reward_urls.pop(reward_url_idx)
-						# A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
-						# A_company.make_automaton()
+						if revisit == False:
+							found_rewards.append(reward_urls[reward_url_idx])
+							reward_domain_set.update(lookup_domain_name(links_df, reward_urls[reward_url_idx]))
+							reward_urls.pop(reward_url_idx)
+							A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
+							A_company.make_automaton()
 					
 					# Feature representation of current page (state) and links in page
 					state = build_url_feature_matrix(words_list, [url])
@@ -312,6 +312,10 @@ def main():
 						writer = csv.writer(csv_file, delimiter=',')
 						writer.writerow([url, r, is_terminal])
 
+					# Decay epsilon
+					if epsilon > end_eps:
+						epsilon = epsilon - eps_decay
+
 					# Choose next URL (and check for looping)
 					if is_terminal == 1:
 						break
@@ -326,11 +330,11 @@ def main():
 			agent.save_train_results()
 			agent.save_tf_model(sess, saver)
 
-			# df = pd.DataFrame(reward_pages, columns=["rewards_pages"])
-			# df.to_csv('results/dqn_reward_pages_revisit.csv', index=False)
-
 	sess.close()
 
 
 if __name__ == "__main__":
+	parser = argparse.ArgumentParser()
+	parser.add_argument('-r', '--run', default='')
+	args = parser.parse_args()
 	main()
