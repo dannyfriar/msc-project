@@ -233,8 +233,8 @@ def main():
 			weights_df.to_csv(feature_coefs_save_file, index=False, header=True)
 
 			# Test URLs
-			# # test_urls = random.sample(set(url_list), 1000)
-			# # pd.DataFrame.from_dict({'url':test_urls}).to_csv("data/random_test_url_sample.csv", index=False)
+			# test_urls = random.sample(set(url_list), 5000)
+			# pd.DataFrame.from_dict({'url':test_urls}).to_csv("data/random_test_url_sample.csv", index=False)
 			test_urls = pd.read_csv("data/random_test_url_sample.csv")['url'].tolist()
 			state_array = build_url_feature_matrix(word_dict, test_urls, revisit, found_rewards)
 			v = sess.run(agent.v, feed_dict={agent.state: state_array}).reshape(-1).tolist()
