@@ -28,13 +28,6 @@ def progress_bar(value, endvalue, bar_length=20):
     sys.stdout.write("\rPercent complete: [{0}] {1}%".format(arrow + spaces, int(round(percent * 100))))
     sys.stdout.flush()
 
-def read_csv_to_list(filename):
-	with open(filename) as f:  # relevant english words
-		reader = csv.reader(f)
-		csv_list = list(reader)
-	return(csv_list[0])
-
-
 def get_list_of_links(url, s=storage):
 	"""Use the LMDB database to get a list of links for a given URL"""
 	try:
@@ -122,95 +115,88 @@ url_list = [l.replace("http://", "").replace("https://", "") for l in url_list i
 # Read in backlinks
 backlinks = pd.read_csv('data/backlinks_clean.csv')
 
-# url = 'gloopa.co.uk/england-commercial-register-letter/#comment-479'
-# link_list = get_list_of_links(url)
-# print(link_list)
-# link_list = append_backlinks(url, backlinks, link_list)
-# print("\n")
-# print(link_list)
-# # print(get_reward('www.dennisandturnbull.com/dt-sterling-boardrooms-business-leaders/', A_company, reward_urls))
-
-
-# print([p.url for p in storage.get_pages_prefix("http://www.big")])
-
-# print(get_reward("www.lassaccounts.co.uk/lakai-c-63_221.html", A_company, reward_urls))
-
-# url_random_sample = random.sample(url_list, 1000)
-# with open("data/random_url_sample.csv", 'w') as f:
-#     wr = csv.writer(f)
-#     wr.writerows([url_random_sample])
-
 # Read random sample of URLs
 test_urls = pd.read_csv("data/random_test_url_sample.csv")['url'].tolist()
+# test_urls = test_urls[:10]
 
 # Get value of a random URL
-gamma = 0.5
-loop_range = 1000
+gamma = 0.9
 crawled_pages = 0
 path_to_reward = 0
 
-# for idx, i in enumerate(range(loop_range)):
-for idx, url in enumerate(test_urls):
-	progress_bar(idx, loop_range)
+results_dict = OrderedDict([('url', []), ('true_value', [])])
 
-	print("Checking reward...")
+for idx, url in enumerate(test_urls):
+	progress_bar(idx, len(test_urls))
+	results_dict['url'].append(url)
+
+	# print("Checking reward...")
 	r = sum(check_strings(A_company, reward_urls, url))
 	if r >= 1:
-		print("Return of {} is {}".format(url, r))
+		# print("Return of {} is {}".format(url, r))
+		results_dict['true_value'].append(r)
 		continue
 
-	# crawled_pages += 1
-
-	print("First links...")
+	# print("First links...")
 	first_hop_links = get_list_of_links(url)
 	first_hop_links = append_backlinks(url, backlinks, first_hop_links)
 	if len(first_hop_links) == 0:
-		print("No first hop links")
-		print("Return of {} is {}".format(url, 0))
+		# print("No first hop links")
+		# print("Return of {} is {}".format(url, 0))
+		results_dict['true_value'].append(0)
 		continue
 
-	print("Checking reward...")
+	# print("Checking reward...")
 	r = sum(check_strings(A_company, reward_urls, " ".join(first_hop_links)))
 	if r >= 1:
-		print("Return of {} is {}".format(url, gamma*r))
-		path_to_reward += 1
+		# print("Return of {} is {}".format(url, gamma*r))
+		# path_to_reward += 1
+		results_dict['true_value'].append(gamma*r)
 		continue
 
-	print("Second links...")
+	# print("Second links...")
 	second_hop_links = get_all_links(first_hop_links)
 	backlink_list = backlinks[backlinks['url'].isin(first_hop_links)]['back_url'].tolist()
 	second_hop_links += backlink_list
 
 	if len(second_hop_links) == 0:
-		print("No second hop links")
-		print("Return of {} is {}".format(url, 0))
+		# print("No second hop links")
+		# print("Return of {} is {}".format(url, 0))
+		results_dict['true_value'].append(0)
 		continue
 
-	print("Checking reward...")
+	# print("Checking reward...")
 	r = sum(check_strings(A_company, reward_urls, " ".join(second_hop_links)))
 	if r >= 1:
-		print("Return of {} is {}".format(url, r*gamma**2))
-		path_to_reward += 1
+		# print("Return of {} is {}".format(url, r*gamma**2))
+		# path_to_reward += 1
+		results_dict['true_value'].append(r*gamma**2)
 		continue
 
-	print("Third links...")
+	# print("Third links...")
 	third_hop_links = get_all_links(second_hop_links)
 	backlink_list = backlinks[backlinks['url'].isin(second_hop_links)]['back_url'].tolist()
 	third_hop_links += backlink_list
 
 	if len(third_hop_links) == 0:
-		print("No third hop links")
-		print("Return of {} is {}".format(url, 0))
+		# print("No third hop links")
+		# print("Return of {} is {}".format(url, 0))
+		results_dict['true_value'].append(0)
 		continue
 
-	print("Checking reward...")
+	# print("Checking reward...")
 	r = sum(check_strings(A_company, reward_urls, " ".join(third_hop_links)))
 	if r >= 1:
-		print("Return of {} is {}".format(url, r*gamma**3))
-		path_to_reward += 1
+		# print("Return of {} is {}".format(url, r*gamma**3))
+		# path_to_reward += 1
+		results_dict['true_value'].append(r*gamma**3)
 		continue
+	else:
+		results_dict['true_value'].append(0)
 
-	print("Return of {} is {}".format(url, 0))
-# print("\nPercent with path to reward {}".format(path_to_reward/crawled_pages))
-
-
+	# print("Return of {} is {}".format(url, 0))
+print("\nSaving Results...")
+print(len(results_dict['url']))
+print(len(results_dict['true_value']))
+pd.DataFrame.from_dict(results_dict).to_csv("results/linear_dqn_results/actual_value_revisit.csv", index=False)
+print("Done.")
