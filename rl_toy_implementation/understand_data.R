@@ -6,6 +6,7 @@ df <- data.table(subset(df, select=c('vert_code', 'url')))
 df <- df[df$vert_code <= 69203, ]
 df <- df[df$vert_code >= 69101, ]
 df <- df[complete.cases(df), ]
+df_reward <- df
 
 company_urls <- as.character(df$url)
 company_urls <- gsub("http://", "", company_urls)
