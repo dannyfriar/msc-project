@@ -334,7 +334,7 @@ def main():
 						.format(pages_crawled, total_reward, terminal_states, len(reward_urls)))
 					agent.train_results_dict['pages_crawled'].append(pages_crawled)
 
-					with open("results/deep_dqn_results/all_urls.csv", "a") as csv_file:
+					with open(all_urls_file, "a") as csv_file:
 						writer = csv.writer(csv_file, delimiter=',')
 						writer.writerow([url, r, is_terminal])
 

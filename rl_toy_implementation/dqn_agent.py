@@ -167,7 +167,7 @@ def main():
 	end_eps = 0.05
 	eps_decay = 2 / num_steps
 	epsilon = start_eps
-	gamma = 0.75
+	gamma = 0.9
 	learning_rate = 0.001
 	reload_model = False
 
