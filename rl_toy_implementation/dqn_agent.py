@@ -297,9 +297,8 @@ def main():
 							agent.state: state, agent.next_state: next_state_array, 
 							agent.reward: r, agent.is_terminal: is_terminal
 					}
-					# opt, loss, v_next  = sess.run([agent.opt, agent.loss, agent.v_next], feed_dict=train_dict)
-					# agent.train_results_dict['nn_loss'].append(float(loss))
-					v_next  = sess.run([agent.v_next], feed_dict=train_dict)
+					opt, loss, v_next  = sess.run([agent.opt, agent.loss, agent.v_next], feed_dict=train_dict)
+					agent.train_results_dict['nn_loss'].append(float(loss))
 
 					# Print progress + save transitions
 					progress_bar(step_count+1, num_steps)
