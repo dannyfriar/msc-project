@@ -152,7 +152,7 @@ class CrawlerAgent(object):
 	# 	test_results_df.to_csv(self.test_save_location, index=False, header=True)
 
 	def save_tf_model(self, tf_session, tf_saver):
-		tf_saver.save(tf_session, "/".join([self.tf_model_folder, "tf_model"]))
+		tf_saver.save(tf_session, "".join([self.tf_model_folder, "tf_model"]))
 
 
 ##-----------------------------------------------------------
@@ -169,7 +169,7 @@ def main():
 	epsilon = start_eps
 	gamma = 0.75
 	learning_rate = 0.001
-	reload_model = True
+	reload_model = False
 
 	##-------------------- Read in data
 	# Read in all URls, backlinks data and list of keywords
@@ -195,14 +195,14 @@ def main():
 		revisit = False
 		weights_shape += 1
 		all_urls_file = RESULTS_FOLDER + "all_urls.csv"
-		model_save_file = MODEL_FOLDER + "linear_model/"
+		model_save_file = MODEL_FOLDER + "linear_model"
 		results_save_file = RESULTS_FOLDER + "dqn_crawler_train_results.csv"
 		feature_coefs_save_file = RESULTS_FOLDER + "feature_coefficients.csv"
 		test_value_files = RESULTS_FOLDER + "test_value.csv"
 	else:
 		revisit = True
 		all_urls_file = RESULTS_FOLDER + "all_urls_revisit.csv"
-		model_save_file = MODEL_FOLDER + "linear_model_revisit/"
+		model_save_file = MODEL_FOLDER + "linear_model_revisit"
 		results_save_file = RESULTS_FOLDER + "dqn_crawler_train_results_revisit.csv"
 		feature_coefs_save_file = RESULTS_FOLDER + "feature_coefficients_revisit.csv"
 		test_value_files = RESULTS_FOLDER + "test_value_revisit.csv"
@@ -297,8 +297,9 @@ def main():
 							agent.state: state, agent.next_state: next_state_array, 
 							agent.reward: r, agent.is_terminal: is_terminal
 					}
-					opt, loss, v_next  = sess.run([agent.opt, agent.loss, agent.v_next], feed_dict=train_dict)
-					agent.train_results_dict['nn_loss'].append(float(loss))
+					# opt, loss, v_next  = sess.run([agent.opt, agent.loss, agent.v_next], feed_dict=train_dict)
+					# agent.train_results_dict['nn_loss'].append(float(loss))
+					v_next  = sess.run([agent.v_next], feed_dict=train_dict)
 
 					# Print progress + save transitions
 					progress_bar(step_count+1, num_steps)
