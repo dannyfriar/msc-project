@@ -185,7 +185,7 @@ def main():
 	# epsilon = 0.1
 	gamma = 0.9
 	learning_rate = 0.001
-	reload_model = True
+	reload_model = False
 
 	##-------------------- Read in data
 	# Read in all URls, backlinks data and list of keywords
