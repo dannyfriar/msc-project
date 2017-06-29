@@ -120,7 +120,7 @@ test_urls = pd.read_csv("data/random_test_url_sample.csv")['url'].tolist()
 # test_urls = test_urls[:10]
 
 # Get value of a random URL
-gamma = 0.9
+gamma = 0.75
 crawled_pages = 0
 path_to_reward = 0
 
