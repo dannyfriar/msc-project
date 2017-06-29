@@ -114,7 +114,8 @@ deep_all_urls$type <- "DQN Agent"
 
 ## Combine and plot rewards
 # results_df <- rbind(deep_all_urls, dqn_all_urls, r_all_urls)
-results_df <- rbind(dqn_all_urls, r_all_urls)
+# results_df <- rbind(dqn_all_urls, r_all_urls)
+results_df <- rbind(deep_all_urls, r_all_urls)
 g_reward <- ggplot(data=results_df, aes(x=step, y=cum_reward, color=type)) 
 g_reward <- g_reward + geom_line(size=0.9) + labs(x='Pages Crawled', y='Total Reward')
 g_reward <- g_reward + theme(legend.position='top')
