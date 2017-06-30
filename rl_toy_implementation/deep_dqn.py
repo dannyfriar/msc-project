@@ -142,9 +142,9 @@ class CrawlerAgent(object):
 		self.tf_model_folder = tf_model_folder
 
 	def build_target_net(self):
-		self.t_w1 = tf.get_variable("t_w1", [self.weights_shape, 6000], initializer=tf.random_normal_initializer(mean=0.0, stddev=0.001))
-		self.t_w2 = tf.get_variable("t_w2", [6000, 300], initializer=tf.random_normal_initializer(mean=0.0, stddev=0.001))
-		self.t_w3 = tf.get_variable("t_w3", [300, 1], initializer=tf.random_normal_initializer(mean=0.0, stddev=0.001))
+		self.t_w1 = tf.get_variable("t_w1", [self.weights_shape, 6000], initializer=tf.random_normal_initializer(mean=0.0, stddev=1/4000))
+		self.t_w2 = tf.get_variable("t_w2", [6000, 300], initializer=tf.random_normal_initializer(mean=0.0, stddev=1/6000))
+		self.t_w3 = tf.get_variable("t_w3", [300, 1], initializer=tf.random_normal_initializer(mean=0.0, stddev=1/300))
 		self.t_b1 = tf.get_variable("t_b1", [6000], initializer=tf.constant_initializer(0.001))
 		self.t_b2 = tf.get_variable("t_b2", [300], initializer=tf.constant_initializer(0.001))
 		self.t_b3 = tf.get_variable("t_b3", [1], initializer=tf.constant_initializer(0.001))
@@ -155,9 +155,9 @@ class CrawlerAgent(object):
 		self.target = self.reward + (1-self.is_terminal) * self.gamma * tf.stop_gradient(tf.reduce_max(self.v_next))
 		
 	def build_train_net(self):
-		self.w1 = tf.get_variable("w1", [self.weights_shape, 6000], initializer=tf.random_normal_initializer(mean=0.0, stddev=0.001))
-		self.w2 = tf.get_variable("w2", [6000, 300], initializer=tf.random_normal_initializer(mean=0.0, stddev=0.001))
-		self.w3 = tf.get_variable("w3", [300, 1], initializer=tf.random_normal_initializer(mean=0.0, stddev=0.001))
+		self.w1 = tf.get_variable("w1", [self.weights_shape, 6000], initializer=tf.random_normal_initializer(mean=0.0, stddev=1/4000))
+		self.w2 = tf.get_variable("w2", [6000, 300], initializer=tf.random_normal_initializer(mean=0.0, stddev=1/6000))
+		self.w3 = tf.get_variable("w3", [300, 1], initializer=tf.random_normal_initializer(mean=0.0, stddev=1/300))
 		self.b1 = tf.get_variable("b1", [6000], initializer=tf.constant_initializer(0.001))
 		self.b2 = tf.get_variable("b2", [300], initializer=tf.constant_initializer(0.001))
 		self.b3 = tf.get_variable("b3", [1], initializer=tf.constant_initializer(0.001))
