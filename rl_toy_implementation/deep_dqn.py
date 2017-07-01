@@ -101,7 +101,6 @@ def build_url_feature_matrix(word_dict, url_list, revisit, found_rewards):
 	feature_matrix = np.concatenate((feature_matrix, extra_vector), axis=1)
 	return feature_matrix
 
-
 ##-----------------------------------------------------------
 ##-------- RL Functions -------------------------------------
 def get_reward(url, A_company, company_urls):
