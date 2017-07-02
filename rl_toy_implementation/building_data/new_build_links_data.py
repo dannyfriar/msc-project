@@ -67,7 +67,7 @@ def main():
 	link_list = list(set(link_list))
 	print("Number of unique page links {}".format(len(link_list)))
 
-	clean_link_list = [l.replace("http://", "").replace("https://", "").replace("www.", "") for l in link_list]
+	clean_link_list = [l.replace("http://", "").replace("https://", "") for l in link_list]
 	clean_link_list = list(set(clean_link_list))
 	pd.DataFrame.from_dict({"url": clean_link_list}).to_csv("../new_data/first_hop_links.csv", index=False)
 
@@ -105,7 +105,7 @@ def main():
 	# pct_rewards = np.mean(np.array(check_strings(A_company, reward_urls, all_urls_string)))
 	# print("% Reward URLs found = {}".format(pct_rewards))
 
-	clean_all_urls = [l.replace("http://", "").replace("https://", "").replace("www.", "") for l in all_urls]
+	clean_all_urls = [l.replace("http://", "").replace("https://", "") for l in all_urls]
 	clean_all_urls = list(set(clean_all_urls))
 	pd.DataFrame.from_dict({"url": clean_all_urls}).to_csv("../new_data/first_hop_outgoing_uk_links.csv", index=False)
 
