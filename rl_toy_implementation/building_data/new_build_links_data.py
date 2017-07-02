@@ -54,8 +54,8 @@ def get_list_of_links(url, s=storage):
 	except UnicodeError:
 		return []
 	try:
-		# link_list = [l.url.replace("http://", "").replace("https://", "") for l in page.links if ".uk" in l.url and l.url[:4] == "http"]
-		link_list = [l.url.replace("http://", "").replace("https://", "") for l in page.links if l.url[:4] == "http"]
+		link_list = [l.url.replace("http://", "").replace("https://", "") for l in page.links if ".uk" in l.url and l.url[:4] == "http"]
+		# link_list = [l.url.replace("http://", "").replace("https://", "") for l in page.links if l.url[:4] == "http"]
 	except UnicodeDecodeError:
 		return []
 	return link_list
@@ -67,9 +67,13 @@ def main():
 	link_list = list(set(link_list))
 	print("Number of unique page links {}".format(len(link_list)))
 
+	clean_link_list = [l.replace("http://", "").replace("https://", "").replace("www.", "") for l in link_list]
+	clean_link_list = list(set(clean_link_list))
+	pd.DataFrame.from_dict({"url": clean_link_list}).to_csv("../new_data/first_hop_links.csv", index=False)
+
 	domain_list = [urlparse(l).netloc.replace("www.", "") for l in link_list]
 	domain_list = list(set(domain_list))
-	print("Number of unique domains {}".format(len(link_list)))
+	print("Number of unique domains {}".format(len(domain_list)))
 
 	links_df = pd.read_csv('../data/links_dataframe.csv')
 	reward_urls = [l.replace("www.", "") for l in links_df[links_df['hops']==0]['url'].tolist()]
@@ -80,6 +84,14 @@ def main():
 	# random_links = " ".join(get_list_of_links(random.choice(link_list)))
 	# print(sum(check_strings(A_company, reward_urls, random_links)))
 
+	# # Find proportion of links that are in the reward (company) domain
+	# total = 0
+	# for idx, link in enumerate(link_list):
+	# 	progress_bar(idx+1, len(link_list))
+	# 	if sum(check_strings(A_company, reward_urls, link)) >= 1:
+	# 		total += 1
+	# print("\n Percentage links in reward list {}".format(total/len(link_list)))
+
 	print("Getting all links...")
 	all_urls = []
 	for idx, link in enumerate(link_list):
@@ -88,10 +100,14 @@ def main():
 	all_urls+= link_list
 	all_urls = list(set(all_urls))
 	print("\nNumber of unique links {}".format(len(all_urls)))
-	all_urls = " ".join(all_urls)
+	all_urls_string = " ".join(all_urls)
 
-	pct_rewards = np.mean(np.array(check_strings(A_company, reward_urls, all_urls)))
-	print("% Reward URLs found = {}".format(pct_rewards))
+	# pct_rewards = np.mean(np.array(check_strings(A_company, reward_urls, all_urls_string)))
+	# print("% Reward URLs found = {}".format(pct_rewards))
+
+	clean_all_urls = [l.replace("http://", "").replace("https://", "").replace("www.", "") for l in all_urls]
+	clean_all_urls = list(set(clean_all_urls))
+	pd.DataFrame.from_dict({"url": clean_all_urls}).to_csv("../new_data/first_hop_outgoing_uk_links.csv", index=False)
 
 
 

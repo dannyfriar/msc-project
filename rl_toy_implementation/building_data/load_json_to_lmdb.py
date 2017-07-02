@@ -99,15 +99,8 @@ def main():
 			print("\n EOF error.")
 			pass
 	print("\n")
-	
-	# print(storage.get_page('http://blog.aarp.org/tag/hipertension/'))
 
 
 if __name__ == "__main__":
 	main()
-
-
-
-
-
 
