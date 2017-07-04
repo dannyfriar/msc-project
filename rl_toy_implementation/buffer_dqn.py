@@ -211,7 +211,7 @@ def main():
 	##-------------------- Parameters
 	cycle_freq = 50
 	term_steps = 50
-	num_steps = 10000  # no. crawled pages before stopping
+	num_steps = 50000  # no. crawled pages before stopping
 	print_freq = 1000
 	copy_steps = 100
 	start_eps = 0.2
@@ -248,13 +248,13 @@ def main():
 		all_urls_file = RESULTS_FOLDER + "all_urls.csv"
 		model_save_file = MODEL_FOLDER + "deep_buffer_model"
 		results_save_file = RESULTS_FOLDER + "dqn_crawler_train_results.csv"
-		feature_coefs_save_file = RESULTS_FOLDER + "feature_coefficients.csv"
+		test_value_files = RESULTS_FOLDER + "test_value.csv"
 	else:
 		revisit = True
 		all_urls_file = RESULTS_FOLDER + "all_urls_revisit.csv"
 		model_save_file = MODEL_FOLDER + "deep_buffer_model_revisit"
 		results_save_file = RESULTS_FOLDER + "dqn_crawler_train_results_revisit.csv"
-		feature_coefs_save_file = RESULTS_FOLDER + "feature_coefficients_revisit.csv"
+		test_value_files = RESULTS_FOLDER + "test_value_revisit.csv"
 
 	##------------------- Initialize Crawler Agent and TF graph/session
 	step_count = 0; pages_crawled = 0; total_reward = 0; terminal_states = 0
@@ -273,6 +273,11 @@ def main():
 			saver = tf.train.import_meta_graph(model_save_file+"/tf_model.meta")
 			saver.restore(sess, tf.train.latest_checkpoint(model_save_file))
 			all_vars = tf.get_collection('vars')
+
+			test_urls = pd.read_csv("data/random_test_url_sample.csv")['url'].tolist()
+			state_array = build_url_feature_matrix(word_dict, test_urls, revisit, found_rewards)
+			v = sess.run(agent.v, feed_dict={agent.state: state_array}).reshape(-1).tolist()
+			pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv(test_value_files, index=False)
 
 		else:
 			##------------------ Run and train crawler agent -----------------------
