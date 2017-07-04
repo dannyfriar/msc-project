@@ -2,3 +2,4 @@
 rl_toy_implementation/data/backlinks.csv
 rl_toy_implementation/data/backlinks_clean.csv
 *.ipynb_checkpoints*
+rl_toy_implementation/models/*
