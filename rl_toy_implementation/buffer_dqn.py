@@ -21,7 +21,7 @@ storage = StorageEngine("/nvme/webcache/")
 from nltk.corpus import stopwords, words, names
 stops = stopwords.words("english")
 
-RESULTS_FOLDER = "results/linear_dqn_results/"
+RESULTS_FOLDER = "results/buffer_dqn_results/"
 MODEL_FOLDER = "models/"
 
 ##-----------------------------------------------------------
@@ -32,13 +32,6 @@ def progress_bar(value, endvalue, bar_length=20):
     spaces = ' ' * (bar_length - len(arrow))
     sys.stdout.write("\rPercent complete: [{0}] {1}%".format(arrow + spaces, int(round(percent * 100))))
     sys.stdout.flush()
-
-def read_csv_to_list(filename):
-	with open(filename) as f:  # relevant english words
-		reader = csv.reader(f)
-		csv_list = list(reader)
-	csv_list = [c[0] for c in csv_list]
-	return(csv_list)
 
 def get_list_of_links(url, s=storage):
 	"""Use the LMDB database to get a list of links for a given URL"""
@@ -198,8 +191,6 @@ class CrawlerAgent(object):
 		op_list = []
 		for idx, var in enumerate(tf_vars[num_vars:]):
 			op_list.append(tf_vars[idx].assign(var.value()))
-
-		# Run the TF operations to copy variables
 		for op in op_list:
 			sess.run(op)
 
@@ -240,7 +231,6 @@ def main():
 	url_set = set(url_list)
 	backlinks = pd.read_csv('data/backlinks_clean.csv')
 	words_list = pd.read_csv("data/segmented_words_df.csv")['word'].tolist()
-	# words_list = pd.read_csv("data/punc_split_words_df.csv")['word'].tolist()
 	word_dict = dict(zip(words_list, list(range(len(words_list)))))
 	count_vec = CountVectorizer(vocabulary=word_dict)
 	weights_shape = len(words_list)
@@ -256,13 +246,13 @@ def main():
 		revisit = False
 		weights_shape += 1
 		all_urls_file = RESULTS_FOLDER + "all_urls.csv"
-		model_save_file = MODEL_FOLDER + "deep_model"
+		model_save_file = MODEL_FOLDER + "deep_buffer_model"
 		results_save_file = RESULTS_FOLDER + "dqn_crawler_train_results.csv"
 		feature_coefs_save_file = RESULTS_FOLDER + "feature_coefficients.csv"
 	else:
 		revisit = True
 		all_urls_file = RESULTS_FOLDER + "all_urls_revisit.csv"
-		model_save_file = MODEL_FOLDER + "deep_model_revisit"
+		model_save_file = MODEL_FOLDER + "deep_buffer_model_revisit"
 		results_save_file = RESULTS_FOLDER + "dqn_crawler_train_results_revisit.csv"
 		feature_coefs_save_file = RESULTS_FOLDER + "feature_coefficients_revisit.csv"
 
@@ -280,15 +270,15 @@ def main():
 
 		if reload_model == True:
 			print("Reloading model...")
-			saver = tf.train.import_meta_graph(model_save_file+"tf_model.meta")
+			saver = tf.train.import_meta_graph(model_save_file+"/tf_model.meta")
 			saver.restore(sess, tf.train.latest_checkpoint(model_save_file))
 			all_vars = tf.get_collection('vars')
 
 		else:
 			##------------------ Run and train crawler agent -----------------------
 			print("Training DQN agent...")
-			# if os.path.isfile(all_urls_file):
-			# 	os.remove(all_urls_file)
+			if os.path.isfile(all_urls_file):
+				os.remove(all_urls_file)
 
 			while step_count < num_steps:
 				url = random.choice(list(url_set - set(recent_urls)))  # don't start at recent URL
@@ -354,9 +344,9 @@ def main():
 						print("\nCrawled {} pages, total reward = {}, # terminal states = {}, remaining rewards = {}"\
 						.format(pages_crawled, total_reward, terminal_states, len(reward_urls)))
 
-					# with open(all_urls_file, "a") as csv_file:
-					# 	writer = csv.writer(csv_file, delimiter=',')
-					# 	writer.writerow([url, r, is_terminal])
+					with open(all_urls_file, "a") as csv_file:
+						writer = csv.writer(csv_file, delimiter=',')
+						writer.writerow([url, r, is_terminal])
 
 					# Decay epsilon
 					if epsilon > end_eps:
@@ -373,7 +363,7 @@ def main():
 
 			print("\nCrawled {} pages, total reward = {}, # terminal states = {}"\
 				.format(pages_crawled, total_reward, terminal_states))
-			# agent.save_tf_model(sess, saver)
+			agent.save_tf_model(sess, saver)
 
 	sess.close()
 

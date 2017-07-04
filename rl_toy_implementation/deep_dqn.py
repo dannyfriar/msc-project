@@ -32,13 +32,6 @@ def progress_bar(value, endvalue, bar_length=20):
     sys.stdout.write("\rPercent complete: [{0}] {1}%".format(arrow + spaces, int(round(percent * 100))))
     sys.stdout.flush()
 
-def read_csv_to_list(filename):
-	with open(filename) as f:  # relevant english words
-		reader = csv.reader(f)
-		csv_list = list(reader)
-	csv_list = [c[0] for c in csv_list]
-	return(csv_list)
-
 def get_list_of_links(url, s=storage):
 	"""Use the LMDB database to get a list of links for a given URL"""
 	try:
@@ -256,7 +249,7 @@ def main():
 
 		if reload_model == True:
 			print("Reloading model...")
-			saver = tf.train.import_meta_graph(model_save_file+"tf_model.meta")
+			saver = tf.train.import_meta_graph(model_save_file+"/tf_model.meta")
 			saver.restore(sess, tf.train.latest_checkpoint(model_save_file))
 			all_vars = tf.get_collection('vars')
 			# weights_df = pd.DataFrame.from_dict({'words':words_list, 
