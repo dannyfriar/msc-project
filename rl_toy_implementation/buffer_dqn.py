@@ -221,7 +221,7 @@ def main():
 	gamma = 0.9
 	learning_rate = 0.001
 	train_sample_size = 5
-	reload_model = False
+	reload_model = True
 
 	##-------------------- Read in data
 	# Read in all URls, backlinks data and list of keywords
