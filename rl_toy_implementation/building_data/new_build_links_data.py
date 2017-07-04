@@ -1,4 +1,5 @@
 import sys
+import pdb
 import lmdb
 import string
 import random
@@ -6,6 +7,7 @@ import ahocorasick
 import numpy as np
 import pandas as pd
 
+from operator import itemgetter
 from urllib.parse import urlparse
 from evolutionai import StorageEngine
 from sklearn.feature_extraction.text import CountVectorizer
@@ -54,8 +56,8 @@ def get_list_of_links(url, s=storage):
 	except UnicodeError:
 		return []
 	try:
-		link_list = [l.url.replace("http://", "").replace("https://", "") for l in page.links if ".uk" in l.url and l.url[:4] == "http"]
-		# link_list = [l.url.replace("http://", "").replace("https://", "") for l in page.links if l.url[:4] == "http"]
+		# link_list = [l.url.replace("http://", "").replace("https://", "") for l in page.links if ".uk" in l.url and l.url[:4] == "http"]
+		link_list = [l.url.replace("http://", "").replace("https://", "") for l in page.links if l.url[:4] == "http"]
 	except UnicodeDecodeError:
 		return []
 	return link_list
@@ -67,9 +69,9 @@ def main():
 	link_list = list(set(link_list))
 	print("Number of unique page links {}".format(len(link_list)))
 
-	clean_link_list = [l.replace("http://", "").replace("https://", "") for l in link_list]
-	clean_link_list = list(set(clean_link_list))
-	pd.DataFrame.from_dict({"url": clean_link_list}).to_csv("../new_data/first_hop_links.csv", index=False)
+	# clean_link_list = [l.replace("http://", "").replace("https://", "") for l in link_list]
+	# clean_link_list = list(set(clean_link_list))
+	# pd.DataFrame.from_dict({"url": clean_link_list}).to_csv("../new_data/first_hop_links.csv", index=False)
 
 	domain_list = [urlparse(l).netloc.replace("www.", "") for l in link_list]
 	domain_list = list(set(domain_list))
@@ -102,14 +104,16 @@ def main():
 	print("\nNumber of unique links {}".format(len(all_urls)))
 	all_urls_string = " ".join(all_urls)
 
-	# pct_rewards = np.mean(np.array(check_strings(A_company, reward_urls, all_urls_string)))
-	# print("% Reward URLs found = {}".format(pct_rewards))
+	reward_indices = check_strings(A_company, reward_urls, all_urls_string)
+	pct_rewards = np.mean(np.array(reward_indices))
+	print("% Reward URLs found = {}".format(pct_rewards))
 
-	clean_all_urls = [l.replace("http://", "").replace("https://", "") for l in all_urls]
-	clean_all_urls = list(set(clean_all_urls))
-	pd.DataFrame.from_dict({"url": clean_all_urls}).to_csv("../new_data/first_hop_outgoing_uk_links.csv", index=False)
+	# clean_all_urls = [l.replace("http://", "").replace("https://", "") for l in all_urls]
+	# clean_all_urls = list(set(clean_all_urls))
+	# pd.DataFrame.from_dict({"url": clean_all_urls}).to_csv("../new_data/first_hop_outgoing_uk_links.csv", index=False)
 
-
+	# found_rewards = [reward_urls[i] for i in np.nonzero(reward_indices)[0]]
+	# pd.DataFrame.from_dict({"url": found_rewards}).to_csv("../new_data/company_urls.csv", index=False)
 
 
 
