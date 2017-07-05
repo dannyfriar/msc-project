@@ -12,7 +12,8 @@ from urllib.parse import urlparse
 from evolutionai import StorageEngine
 from sklearn.feature_extraction.text import CountVectorizer
 
-DB_PATH = "/nvme/webcache1/"
+# DB_PATH = "/nvme/webcache1/"
+DB_PATH = "/nvme/second_level/"
 storage = StorageEngine(DB_PATH)
 
 ##------------------------------------------------------
@@ -77,10 +78,20 @@ def main():
 	domain_list = list(set(domain_list))
 	print("Number of unique domains {}".format(len(domain_list)))
 
-	links_df = pd.read_csv('../data/links_dataframe.csv')
-	reward_urls = [l.replace("www.", "") for l in links_df[links_df['hops']==0]['url'].tolist()]
-	A_company = init_automaton(reward_urls) # Aho-corasick automaton for companies
+	# Companies
+	# links_df = pd.read_csv('../data/links_dataframe.csv')
+	# reward_urls = [l.replace("www.", "") for l in links_df[links_df['hops']==0]['url'].tolist()]
+	# A_company = init_automaton(reward_urls) # Aho-corasick automaton for companies
+	# A_company.make_automaton()
+
+	# First hop pages
+	links_df = pd.read_csv('../new_data/first_hop_links.csv')
+	reward_urls = [l.replace("www.", "") for l in links_df['url'].tolist()]
+	A_company = init_automaton(reward_urls) # Aho-corasick automaton for first hop pages
 	A_company.make_automaton()
+	reward_set = set(reward_urls)
+
+
 
 	# # Check random link actually links to company page
 	# random_links = " ".join(get_list_of_links(random.choice(link_list)))
@@ -96,9 +107,19 @@ def main():
 
 	print("Getting all links...")
 	all_urls = []
+	total = 0
+	got = 0
 	for idx, link in enumerate(link_list):
 		progress_bar(idx+1, len(link_list))
-		all_urls += get_list_of_links(link)
+		temp_url_list = get_list_of_links(link)
+		total += 1
+		if len(set(temp_url_list).intersection(reward_set)) > 0:
+			got += 1
+		all_urls += temp_url_list
+
+	print("\n")
+	print(got)
+	print(total)
 	all_urls+= link_list
 	all_urls = list(set(all_urls))
 	print("\nNumber of unique links {}".format(len(all_urls)))
@@ -107,6 +128,8 @@ def main():
 	reward_indices = check_strings(A_company, reward_urls, all_urls_string)
 	pct_rewards = np.mean(np.array(reward_indices))
 	print("% Reward URLs found = {}".format(pct_rewards))
+
+	print(sorted(reward_indices)[-100:])
 
 	# clean_all_urls = [l.replace("http://", "").replace("https://", "") for l in all_urls]
 	# clean_all_urls = list(set(clean_all_urls))

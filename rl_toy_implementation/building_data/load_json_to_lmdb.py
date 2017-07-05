@@ -41,7 +41,10 @@ def stream_file(path, topic, client_id):
 	f = gzip.open(path, "rt")
 	count_all = 0
 	count_processed = 0
+	count = 0
 	for line in f:
+		count += 1
+		progress_bar(count, 20000)
 		if line[0] != "{":
 			continue
 		count_all += 1
@@ -80,7 +83,7 @@ def main():
 	parser = argparse.ArgumentParser()
 	parser.add_argument("dir")
 	parser.add_argument("db_path")
-	parser.add_argument("num_files")
+	# parser.add_argument("num_files")
 	args = parser.parse_args()
 
 	global env
@@ -88,11 +91,12 @@ def main():
 	file_list = sorted(os.listdir(args.dir))
 	file_list = [l for l in file_list if "gz" in l]
 	# file_list = file_list[:int(args.num_files)]
-	file_list = random.sample(file_list, int(args.num_files))
+	# file_list = random.sample(file_list, int(args.num_files))
+	file_list = file_list[:1]
 
 	for idx, file in enumerate(file_list):
 		filename = args.dir+ "/" + file
-		progress_bar(idx+1, len(file_list))
+		# progress_bar(idx+1, len(file_list))
 		try:
 			stream_file(filename, "links",client_id)
 		except EOFError:

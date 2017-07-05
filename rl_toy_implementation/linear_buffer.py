@@ -193,7 +193,7 @@ def main():
 	gamma = 0.75
 	learning_rate = 0.001
 	train_sample_size = 1
-	reload_model = False
+	reload_model = True
 
 	##-------------------- Read in data
 	# Read in all URls, backlinks data and list of keywords
@@ -218,15 +218,15 @@ def main():
 		revisit = False
 		weights_shape += 1
 		all_urls_file = RESULTS_FOLDER + "all_urls.csv"
-		model_save_file = MODEL_FOLDER + "deep_buffer_model"
+		model_save_file = MODEL_FOLDER + "linear_buffer_model"
 		results_save_file = RESULTS_FOLDER + "dqn_crawler_train_results.csv"
-		test_value_files = RESULTS_FOLDER + "test_value.csv"
 	else:
 		revisit = True
 		all_urls_file = RESULTS_FOLDER + "all_urls_revisit.csv"
-		model_save_file = MODEL_FOLDER + "deep_buffer_model_revisit"
+		model_save_file = MODEL_FOLDER + "linear_buffer_model_revisit"
 		results_save_file = RESULTS_FOLDER + "dqn_crawler_train_results_revisit.csv"
-		test_value_files = RESULTS_FOLDER + "test_value_revisit.csv"
+		feature_coefs_save_file = RESULTS_FOLDER + "feature_coefficients_revisit.csv"
+		test_value_files = RESULTS_FOLDER + "test_value.csv"
 
 	##------------------- Initialize Crawler Agent and TF graph/session
 	step_count = 0; pages_crawled = 0; total_reward = 0; terminal_states = 0
@@ -343,7 +343,7 @@ def main():
 
 			print("\nCrawled {} pages, total reward = {}, # terminal states = {}"\
 				.format(pages_crawled, total_reward, terminal_states))
-			# agent.save_tf_model(sess, saver)
+			agent.save_tf_model(sess, saver)
 
 	sess.close()
 
