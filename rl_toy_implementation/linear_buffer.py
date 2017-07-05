@@ -192,7 +192,7 @@ def main():
 	epsilon = start_eps
 	gamma = 0.75
 	learning_rate = 0.001
-	train_sample_size = 5
+	train_sample_size = 1
 	reload_model = False
 
 	##-------------------- Read in data
@@ -245,7 +245,14 @@ def main():
 			saver = tf.train.import_meta_graph(model_save_file+"/tf_model.meta")
 			saver.restore(sess, tf.train.latest_checkpoint(model_save_file))
 			all_vars = tf.get_collection('vars')
+			if revisit == True:
+				weights_df = pd.DataFrame.from_dict({'words':words_list, 'coef': agent.weights.eval().reshape(-1).tolist()})
+			else:
+				weights_df = pd.DataFrame.from_dict({'words':words_list+['prev_reward'], 
+					'coef': agent.weights.eval().reshape(-1).tolist()})
+			weights_df.to_csv(feature_coefs_save_file, index=False, header=True)
 
+			# Test URLs
 			test_urls = pd.read_csv("data/random_test_url_sample.csv")['url'].tolist()
 			state_array = build_url_feature_matrix(word_dict, test_urls, revisit, found_rewards)
 			v = sess.run(agent.v, feed_dict={agent.state: state_array}).reshape(-1).tolist()
