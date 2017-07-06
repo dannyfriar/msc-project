@@ -14,6 +14,7 @@ import signal
 import string
 import lmdb
 import glob
+import time
 
 from evolutionai import webpage_capnp
 from evolutionai import StorageEngine
@@ -39,15 +40,12 @@ def stream_file(path, topic, client_id):
 	global env, dctx
 	cctx = zstd.ZstdCompressor(level=22,write_content_size=True)
 	f = gzip.open(path, "rt")
-	count_all = 0
-	count_processed = 0
 	count = 0
 	for line in f:
 		count += 1
-		progress_bar(count, 20000)
+		progress_bar(count, 800000)
 		if line[0] != "{":
 			continue
-		count_all += 1
 		j = json.loads(line)
 		if "WARC-Target-URI" not in j["Envelope"]["WARC-Header-Metadata"]:
 			continue
@@ -70,7 +68,6 @@ def stream_file(path, topic, client_id):
 			l.text = links[i].get("text", "")
 			l.title = links[i].get("title", "")
 		payload = page.to_bytes()
-		count_processed += 1
 
 		compressed = cctx.compress(payload)
 		page = webpage_capnp.Page.from_bytes(payload)
@@ -92,16 +89,17 @@ def main():
 	file_list = [l for l in file_list if "gz" in l]
 	# file_list = file_list[:int(args.num_files)]
 	# file_list = random.sample(file_list, int(args.num_files))
-	file_list = file_list[:1]
 
 	for idx, file in enumerate(file_list):
+		t0 = time.time()
 		filename = args.dir+ "/" + file
 		# progress_bar(idx+1, len(file_list))
 		try:
-			stream_file(filename, "links",client_id)
+			stream_file(filename, "links", client_id)
 		except EOFError:
 			print("\n EOF error.")
 			pass
+		print(time.time()-t0)
 	print("\n")
 
 
