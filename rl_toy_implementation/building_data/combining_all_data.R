@@ -1,5 +1,5 @@
 library(data.table)
-setwd("~/Desktop/CSML/project/msc-project/rl_toy_implementation/building_data")
+setwd("/home/daniel/msc-project/rl_toy_implementation/building_data")
 
 #--------------- Read data
 # All company pages
