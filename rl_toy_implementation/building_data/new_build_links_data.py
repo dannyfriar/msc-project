@@ -57,8 +57,8 @@ def get_list_of_links(url, s=storage):
 	except UnicodeError:
 		return []
 	try:
-		# link_list = [l.url.replace("http://", "").replace("https://", "") for l in page.links if ".uk" in l.url and l.url[:4] == "http"]
-		link_list = [l.url.replace("http://", "").replace("https://", "") for l in page.links if l.url[:4] == "http"]
+		link_list = [l.url.replace("http://", "").replace("https://", "") for l in page.links if ".uk" in l.url and l.url[:4] == "http"]
+		# link_list = [l.url.replace("http://", "").replace("https://", "") for l in page.links if l.url[:4] == "http"]
 	except UnicodeDecodeError:
 		return []
 	return link_list
@@ -79,15 +79,17 @@ def main():
 	# domain_list = list(set(domain_list))
 	# print("Number of unique domains {}".format(len(domain_list)))
 
-	# Company URLs (3,000)
-	links_df = pd.read_csv('../data/links_dataframe.csv')
-	reward_urls = [l.replace("www.", "") for l in links_df[links_df['hops']==0]['url'].tolist()]
-	A_company = init_automaton(reward_urls) # Aho-corasick automaton for companies
-	A_company.make_automaton()
+	# # Company URLs (3,000)
+	# links_df = pd.read_csv('../data/links_dataframe.csv')
+	# reward_urls = [l.replace("www.", "") for l in links_df[links_df['hops']==0]['url'].tolist()]
+	# A_company = init_automaton(reward_urls) # Aho-corasick automaton for companies
+	# A_company.make_automaton()
 
-	# # First hop pages (read in first hop links)
-	# links_df = pd.read_csv('../new_data/first_hop_links.csv')
-	# reward_urls = [l.replace("http://", "").replace("https://", "").replace("www.", "") for l in links_df['url'].tolist()]
+	# First hop pages (read in first hop links)
+	links_df = pd.read_csv('../new_data/first_hop_links.csv')
+	reward_urls = [l.replace("http://", "").replace("https://", "") for l in links_df['url'].tolist()]
+	reward_urls = reward_urls + [l.replace("www.", "") for l in reward_urls]
+	reward_urls_set = set(reward_urls)
 	# print("Creating automaton...")
 	# A_company = init_automaton(reward_urls) # Aho-corasick automaton for first hop pages
 	# A_company.make_automaton()
@@ -107,31 +109,36 @@ def main():
 	# 		total += 1
 	# print("\n Percentage links in reward list {}".format(total/len(link_list)))
 
+	# link_list = link_list[:10000]
+
 	print("Getting all links...")
 	all_urls = []
-	link_list = link_list[:-10]
 	for idx, link in enumerate(link_list):
 		progress_bar(idx+1, len(link_list))
-		temp_url_list = get_list_of_links(link)
-		all_urls += temp_url_list
+		all_urls += get_list_of_links(link)
 	print("\n")
 
-	all_urls+= link_list
 	all_urls = list(set(all_urls))
-	print("\nNumber of unique links {}".format(len(all_urls)))
-	all_urls_string = " ".join(all_urls)
+	pd.DataFrame.from_dict({'url':all_urls}).to_csv("../new_data/second_hop_outgoing_uk_links.csv", index=False)
+	# print("Pct 1st hop reached = {}".format(len(reward_urls_set.intersection(all_urls_set))/len(reward_urls_set)))
 
-	reward_indices = check_strings(A_company, reward_urls, all_urls_string)
-	print(sum(reward_indices))
-	pct_rewards = np.mean(np.array(reward_indices))
-	print("% Reward URLs found = {}".format(pct_rewards))
 
-	# Find all the reward pages in the company domains (as these need to be crawled)
-	actual_reward_pages = []
-	for idx, url in enumerate(all_urls):
-		progress_bar(idx+1, len(all_urls))
-		if sum(check_strings(A_company, reward_urls, url)) > 0:
-			actual_reward_pages.append(url)
+	# all_urls+= link_list
+	# all_urls = list(set(all_urls))
+	# print("\nNumber of unique links {}".format(len(all_urls)))
+	# all_urls_string = " ".join(all_urls)
+
+	# reward_indices = check_strings(A_company, reward_urls, all_urls_string)
+	# print(sum(reward_indices))
+	# pct_rewards = np.mean(np.array(reward_indices))
+	# print("% Reward URLs found = {}".format(pct_rewards))
+
+	# # Find all the reward pages in the company domains (as these need to be crawled)
+	# actual_reward_pages = []
+	# for idx, url in enumerate(all_urls):
+	# 	progress_bar(idx+1, len(all_urls))
+	# 	if sum(check_strings(A_company, reward_urls, url)) > 0:
+	# 		actual_reward_pages.append(url)
 
 	# # pd.DataFrame.from_dict({'url':actual_reward_pages}).to_csv("../new_data/actual_reward_pages.csv", index=False)
 	# actual_reward_pages = pd.read_csv("../new_data/actual_reward_pages.csv")['url'].tolist()
