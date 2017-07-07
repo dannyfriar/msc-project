@@ -86,8 +86,8 @@ r_all_urls$cum_reward <- cumsum(r_all_urls$reward)
 r_all_urls$is_terminal <- NA
 r_all_urls$type <- "Random Crawler"
 
-## Deep DQN crawler (with target net)
-deep_all_urls <- data.table(read.csv(paste0("results/deep_dqn_results/", path_ending), header=FALSE))
+## Deep DQN crawler (with target net + buffer)
+deep_all_urls <- data.table(read.csv(paste0("results/buffer_dqn_results/", path_ending), header=FALSE))
 names(deep_all_urls) <- c('url', 'reward', 'is_terminal')
 deep_all_urls$step <- 1:nrow(deep_all_urls)
 deep_all_urls$domain <- sapply(deep_all_urls$url, function(x) sub("/.*$","", x))
@@ -112,18 +112,44 @@ deep_all_urls$unique_reward_count <- na.locf(deep_all_urls$unique_reward_count)
 deep_all_urls$cum_reward <- cumsum(deep_all_urls$reward)
 deep_all_urls$type <- "DQN Agent"
 
+## Q-learning + buffer
+l_buff_all_urls <- data.table(read.csv(paste0("results/linear_buffer_results/", path_ending), header=FALSE))
+names(l_buff_all_urls) <- c('url', 'reward', 'is_terminal')
+l_buff_all_urls$step <- 1:nrow(l_buff_all_urls)
+l_buff_all_urls$domain <- sapply(l_buff_all_urls$url, function(x) sub("/.*$","", x))
+l_buff_all_urls$domain <- sapply(l_buff_all_urls$domain, function(x) sub("www.","", x))
+l_buff_all_urls$domain <- sapply(l_buff_all_urls$domain, function(x) sub("http://","", x))
+l_buff_all_urls$domain <- sapply(l_buff_all_urls$domain, function(x) sub("https://","", x))
+l_buff_all_urls[grepl("}", l_buff_all_urls$domain)]$domain <- ""
+l_buff_all_urls <- merge(l_buff_all_urls, dt_reward, by="domain", all.x=TRUE)
+l_buff_all_urls[is.na(vert_code)]$reward <- 0
+l_buff_all_urls <- subset(l_buff_all_urls, select=-c(url.y, vert_code))
+setkey(l_buff_all_urls, step)
+
+unique_rewards <- subset(l_buff_all_urls[reward==1], select=c(step, domain))
+unique_rewards <- unique_rewards[!duplicated(subset(unique_rewards, select=domain))]
+unique_rewards$unique_reward_count <- 1:nrow(unique_rewards)
+
+unique_rewards$domain <- NULL
+setkey(unique_rewards, step)
+l_buff_all_urls <- merge(l_buff_all_urls, unique_rewards, all.x=TRUE)
+l_buff_all_urls[1]$unique_reward_count <- ifelse(is.na(l_buff_all_urls[1]$unique_reward_count), 0, 1)
+l_buff_all_urls$unique_reward_count <- na.locf(l_buff_all_urls$unique_reward_count)
+l_buff_all_urls$cum_reward <- cumsum(l_buff_all_urls$reward)
+l_buff_all_urls$type <- "Q-learning+Buffer"
+
 ## Combine and plot rewards
-# results_df <- rbind(deep_all_urls, dqn_all_urls, r_all_urls)
+results_df <- rbind(l_buff_all_urls, dqn_all_urls, r_all_urls)
 # results_df <- rbind(dqn_all_urls, r_all_urls)
-results_df <- rbind(deep_all_urls, r_all_urls)
+# results_df <- rbind(deep_all_urls, r_all_urls)
 g_reward <- ggplot(data=results_df, aes(x=step, y=cum_reward, color=type))
-g_reward <- g_reward + geom_line(size=0.9) + labs(x='Pages Crawled', y='Total Reward')
+g_reward <- g_reward + geom_line(size=0.9) + labs(x='Pages Crawled', y='Total Reward', color="")
 g_reward <- g_reward + theme(legend.position='top')
-g_reward <- g_reward + scale_x_continuous(labels=comma) + scale_y_continuous(labels=comma, breaks=pretty_breaks())
+g_reward <- g_reward + scale_x_continuous(labels=comma) + scale_y_continuous(labels=comma)
 
 ## Combine and plot unique rewards
 g_uniq <- ggplot(data=results_df, aes(x=step, y=unique_reward_count, color=type))
-g_uniq <- g_uniq + geom_line(size=0.9) + labs(x='Pages Crawled', y='Unique Rewards')
+g_uniq <- g_uniq + geom_line(size=0.9) + labs(x='Pages Crawled', y='Unique Rewards', color="")
 g_uniq <- g_uniq + theme(legend.position="top")
 g_uniq <- g_uniq + scale_x_continuous(labels=comma) + scale_y_continuous(labels=comma)
 
@@ -164,14 +190,14 @@ if (revisit == TRUE) {
 }
 
 ##----------------------- Look at feature coefficients
-feature_coefs <- data.table(read.csv(paste0("results/linear_dqn_results/", feature_weights_path)))
+feature_coefs <- data.table(read.csv(paste0("results/linear_buffer_results/", feature_weights_path)))
 feature_coefs$coef_mag <- abs(feature_coefs$coef)
 feature_coefs <- feature_coefs[order(-coef_mag)]
 feature_coefs$words <- factor(feature_coefs$words, levels=unique(feature_coefs$words))
 
 g_coef <- ggplot(data=feature_coefs[1:20], aes(x=words, y=coef, fill=words)) + geom_bar(stat='identity')
 g_coef <- g_coef + theme(legend.position='none', axis.text.x=element_text(angle=45, hjust=1))
-g_coef <- g_coef + labs(x="Word", y="Weight")
+g_coef <- g_coef + labs(x="", y="Weight")
 g_coef
 ggsave(filename=paste0("../figures/our_work/", save_coefs_ending), plot=g_coef, width=15, height=10, units="cm")
 
@@ -200,7 +226,8 @@ g_reward_slope = g_reward_slope + theme(legend.position="bottom", legend.title=e
 g_reward_slope
 
 ##---------------------- Testing predicted values vs actual values
-predicted_values <- data.table(read.csv("results/linear_dqn_results/test_value_revisit.csv"))
+# predicted_values <- data.table(read.csv("results/linear_dqn_results/test_value_revisit.csv"))
+predicted_values <- data.table(read.csv("results/buffer_dqn_results/test_value_revisit.csv"))
 actual_values <- data.table(read.csv("results/linear_dqn_results/actual_value_revisit.csv"))
 setkey(predicted_values, url); setkey(actual_values, url)
 test_values <- merge(predicted_values, actual_values)
@@ -212,7 +239,7 @@ test_values <- test_values[!(is.na(vert_code) & true_value==1)]
 test_values <- subset(test_values, select=-c(vert_code, url.y, domain))
 setnames(test_values, 'url.x', 'url')
 test_values <- test_values[true_value > 0][order(-true_value)]
-test_values <- test_values[value >= 0 & value <=0.6]
+test_values <- test_values[value >= 0 & value <=1]
 test_values$true_value <- factor(test_values$true_value, levels=unique(test_values$true_value),
                                  labels=c("1", "gamma", "gamma^2", "gamma^3"))
 test_values <- test_values[, median_value:=median(value), by=true_value]
@@ -220,7 +247,7 @@ g_value <- ggplot(data=test_values, aes(x=value, fill=true_value)) + geom_densit
 g_value <- g_value + geom_vline(aes(xintercept=median_value, group=true_value), linetype=2)
 g_value <- g_value + labs(x="Predicted Value Function", y="", fill="True Value Function")
 g_value <- g_value + theme(legend.position="bottom") + guides(fill=guide_legend(nrow=2))
-g_value <- g_value + facet_grid(true_value~.) + guides(fill=FALSE, color=FALSE)
+g_value <- g_value + facet_grid(true_value~., scales = "free_y") + guides(fill=FALSE, color=FALSE)
 g_value
 
 
