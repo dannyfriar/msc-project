@@ -91,7 +91,6 @@ def main():
 	# file_list = random.sample(file_list, int(args.num_files))
 
 	for idx, file in enumerate(file_list):
-		t0 = time.time()
 		filename = args.dir+ "/" + file
 		# progress_bar(idx+1, len(file_list))
 		try:
@@ -99,7 +98,6 @@ def main():
 		except EOFError:
 			print("\n EOF error.")
 			pass
-		print(time.time()-t0)
 	print("\n")
 
 
