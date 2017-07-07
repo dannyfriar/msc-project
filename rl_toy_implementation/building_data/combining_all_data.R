@@ -30,7 +30,7 @@ out_second_hop$type <- "outgoing-second-hop"
 #--------------- Combine data
 all_urls <- rbind(company_urls, first_hop, arp, out_first_hop, second_hop, out_second_hop)
 all_urls$domain <- sub("/.*$","", all_urls$url)
-write.csv(links_df, "../new_data/links_dataframe.csv", row.names=FALSE)
+write.csv(all_urls, "../new_data/links_dataframe.csv", row.names=FALSE)
 
 
 
