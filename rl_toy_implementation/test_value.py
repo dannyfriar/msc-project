@@ -14,7 +14,7 @@ import tensorflow as tf
 from collections import OrderedDict
 
 from evolutionai import StorageEngine
-storage = StorageEngine("/nvme/webcache/")
+storage = StorageEngine("/nvme/rl_project_webcache/")
 
 from nltk.corpus import stopwords, words, names
 stops = stopwords.words("english")
@@ -122,44 +122,54 @@ for idx, url in enumerate(test_urls):
 	# print("Checking reward...")
 	r = sum(check_strings(A_company, reward_urls, url))
 	if r >= 1:
-		# print("Return of {} is {}".format(url, r))
+		# print("Return of {} is {}".format(url, 1))
 		results_dict['true_value'].append(1)
+		# input("Press enter to continue...")
 		continue
 
 	# print("First links...")
 	first_hop_links = get_list_of_links(url)
+	first_hop_links = list(set(first_hop_links).intersection(url_set))
 	if len(first_hop_links) == 0:
 		# print("No first hop links")
 		# print("Return of {} is {}".format(url, 0))
 		results_dict['true_value'].append(0)
+		# input("Press enter to continue...")
+		continue
+	if len(first_hop_links) > 100:
+		results_dict['url'] = results_dict['url'][:-1]
 		continue
 
 	# print("Checking reward...")
 	r = sum(check_strings(A_company, reward_urls, " ".join(first_hop_links)))
 	if r >= 1:
-		# print("Return of {} is {}".format(url, gamma*r))
-		# path_to_reward += 1
+		# print("Return of {} is {}".format(url, gamma))
 		results_dict['true_value'].append(gamma)
+		# input("Press enter to continue...")
 		continue
 
 	# print("Second links...")
 	second_hop_links = get_all_links(first_hop_links)
+	second_hop_links = list(set(second_hop_links).intersection(url_set))
 
 	if len(second_hop_links) == 0:
 		# print("No second hop links")
 		# print("Return of {} is {}".format(url, 0))
 		results_dict['true_value'].append(0)
+		# input("Press enter to continue...")
 		continue
 
 	# print("Checking reward...")
 	r = sum(check_strings(A_company, reward_urls, " ".join(second_hop_links)))
 	if r >= 1:
-		# print("Return of {} is {}".format(url, r*gamma**2))
-		# path_to_reward += 1
+		# print("Return of {} is {}".format(url, gamma**2))
 		results_dict['true_value'].append(gamma**2)
+		# input("Press enter to continue...")
 		continue
 	else:
 		results_dict['true_value'].append(0)
+
+	# input("Press enter to continue...")
 
 
 print("\nSaving Results...")
