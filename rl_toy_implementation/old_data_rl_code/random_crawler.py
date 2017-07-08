@@ -71,13 +71,6 @@ def lookup_domain_name(links_df, domain_url):
 
 ##-----------------------------------------------------------
 ##-------- RL Functions -------------------------------------
-def get_random_url(url_list, recent_urls):
-	"""Get random url that is not in list of recent URLs"""
-	url = random.choice(url_list)
-	while url in recent_urls:
-		url = random.choice(url_list)
-	return url
-
 def get_reward(url, A_company, company_urls):
 	"""Return 1 if company URL, 0 otherwise"""
 	idx_list = check_strings(A_company, company_urls, url)
@@ -115,11 +108,11 @@ def main():
 	recent_urls = []; reward_pages = []
 	reward_domain_set = set()
 
-	if os.path.isfile(all_urls_file):
-		os.remove(all_urls_file)
+	# if os.path.isfile(all_urls_file):
+		# os.remove(all_urls_file)
 
 	while num_steps < number_crawls:
-		url = get_random_url(url_list, recent_urls)
+		url = random.choice(list(url_set - set(recent_urls)))  # don't start at recent URL
 		steps_without_terminating = 0
 
 		while num_steps < number_crawls:
@@ -140,9 +133,9 @@ def main():
 			r, reward_url_idx = get_reward(url, A_company, reward_urls)
 			pages_crawled += 1
 			total_reward += r
-			with open(all_urls_file, "a") as csv_file:
-				writer = csv.writer(csv_file, delimiter=',')
-				writer.writerow([url, r])
+			# with open(all_urls_file, "a") as csv_file:
+				# writer = csv.writer(csv_file, delimiter=',')
+				# writer.writerow([url, r])
 			if r > 0:
 				if args.run == "no-revisit":
 					reward_pages.append(url)

@@ -15,7 +15,7 @@ from collections import OrderedDict
 from sklearn.feature_extraction.text import CountVectorizer
 
 from evolutionai import StorageEngine
-storage = StorageEngine("/nvme/rl_project_webcache/")
+storage = StorageEngine("/nvme/webcache/")
 
 from nltk.corpus import stopwords, words, names
 stops = stopwords.words("english")
@@ -56,6 +56,15 @@ def lookup_domain_name(links_df, domain_url):
 	"""Returns list of all URLs within domain web site (in database)"""
 	return links_df[links_df['domain'].values == domain_url]['url'].tolist()
 
+def append_backlinks(url, backlinks, link_list):
+	"""Get the backlink for the URL, returns a string"""
+	backlink =  backlinks[backlinks['url'].values == url]['back_url'].tolist()
+	if len(backlink) == 0:
+		return link_list
+	link_list.append(backlink[0])
+	return link_list
+
+
 ##-----------------------------------------------------------
 ##-------- String Functions ---------------------------------
 def init_automaton(string_list):
@@ -75,8 +84,9 @@ def check_strings(A, search_list, string_to_search):
 	output_list[index_list] = 1
 	return output_list.tolist()
 
-def build_url_feature_matrix(count_vec, url_list, revisit, found_rewards):
+def build_url_feature_matrix(word_dict, url_list, revisit, found_rewards):
 	"""Return 2d numpy array of booleans"""
+	count_vec = CountVectorizer(vocabulary=word_dict)
 	feature_matrix = count_vec.transform(url_list).toarray()
 	if revisit == True:
 		return feature_matrix
@@ -87,13 +97,6 @@ def build_url_feature_matrix(count_vec, url_list, revisit, found_rewards):
 
 ##-----------------------------------------------------------
 ##-------- RL Functions -------------------------------------
-def get_random_url(url_list, recent_urls):
-	"""Get random url that is not in list of recent URLs"""
-	url = random.choice(url_list)
-	while url in recent_urls:
-		url = random.choice(url_list)
-	return url
-
 def get_reward(url, A_company, company_urls):
 	"""Return 1 if company URL, 0 otherwise"""
 	idx_list = check_strings(A_company, company_urls, url)
@@ -169,20 +172,23 @@ def main():
 	reload_model = False
 
 	##-------------------- Read in data
-	links_df = pd.read_csv("new_data/links_dataframe.csv")
-	reward_urls = links_df[links_df['type']=='company-url']['url']
-	reward_urls = [l.replace("www.", "") for l in reward_urls]
-	A_company = init_automaton(reward_urls)  # Aho-corasick automaton
-	A_company.make_automaton()
-	url_set = set(links_df['url'].tolist())
-	url_list = list(url_set)
-	shuffled_url_list = random.shuffle(url_list)
-
-	# Read in list of keywords
+	# Read in all URls, backlinks data and list of keywords
+	links_df = pd.read_csv('data/links_dataframe.csv')
+	url_list = links_df['url'].tolist()
+	url_list = [l.replace("http://", "").replace("https://", "") for l in url_list if type(l) is str if l[-4:] not in [".png", ".jpg", ".pdf", ".txt"]]
+	url_set = set(url_list)
+	backlinks = pd.read_csv('data/backlinks_clean.csv')
 	words_list = pd.read_csv("data/segmented_words_df.csv")['word'].tolist()
+	# words_list = pd.read_csv("data/punc_split_words_df.csv")['word'].tolist()
 	word_dict = dict(zip(words_list, list(range(len(words_list)))))
 	count_vec = CountVectorizer(vocabulary=word_dict)
 	weights_shape = len(words_list)
+
+	# Read in company URLs
+	reward_urls = [l.replace("www.", "") for l in links_df[links_df['hops']==0]['url'].tolist()]
+	reward_urls = list(set(reward_urls))
+	A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
+	A_company.make_automaton()
 
 	# Set paths
 	if args.run == "no-revisit":
@@ -239,11 +245,11 @@ def main():
 		else:
 			##------------------ Run and train crawler agent -----------------------
 			print("Training DQN agent...")
-			# if os.path.isfile(all_urls_file):
-				# os.remove(all_urls_file)
+			if os.path.isfile(all_urls_file):
+				os.remove(all_urls_file)
 
 			while step_count < num_steps:
-				url = get_random_url(url_list, recent_urls)
+				url = random.choice(list(url_set - set(recent_urls)))  # don't start at recent URL
 				steps_without_terminating = 0
 
 				while step_count < num_steps:
@@ -269,8 +275,9 @@ def main():
 							A_company.make_automaton()
 					
 					# Feature representation of current page (state) and links in page
-					state = build_url_feature_matrix(count_vec, [url], revisit, found_rewards)
+					state = build_url_feature_matrix(words_list, [url], revisit, found_rewards)
 					link_list = get_list_of_links(url)
+					link_list = append_backlinks(url, backlinks, link_list)
 					link_list = set(link_list).intersection(url_set)
 					link_list = list(link_list - set(recent_urls))
 
@@ -282,7 +289,7 @@ def main():
 					else:
 						is_terminal = 0
 						steps_without_terminating += 1
-						next_state_array = build_url_feature_matrix(count_vec, link_list, revisit, found_rewards)
+						next_state_array = build_url_feature_matrix(words_list, link_list, revisit, found_rewards)
 					agent.train_results_dict['terminal_states'].append(terminal_states)
 
 					# Train DQN
@@ -300,9 +307,9 @@ def main():
 						.format(pages_crawled, total_reward, terminal_states, len(reward_urls)))
 					agent.train_results_dict['pages_crawled'].append(pages_crawled)
 
-					# with open(all_urls_file, "a") as csv_file:
-						# writer = csv.writer(csv_file, delimiter=',')
-						# writer.writerow([url, r, is_terminal])
+					with open(all_urls_file, "a") as csv_file:
+						writer = csv.writer(csv_file, delimiter=',')
+						writer.writerow([url, r, is_terminal])
 
 					# Decay epsilon
 					if epsilon > end_eps:
@@ -319,8 +326,8 @@ def main():
 
 			print("\nCrawled {} pages, total reward = {}, # terminal states = {}"\
 				.format(pages_crawled, total_reward, terminal_states))
-			# agent.save_train_results()
-			# agent.save_tf_model(sess, saver)
+			agent.save_train_results()
+			agent.save_tf_model(sess, saver)
 
 	sess.close()
 
