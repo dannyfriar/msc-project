@@ -44,6 +44,7 @@ def get_list_of_links(url, s=storage):
 		return []
 	try:
 		link_list = [l.url.replace("http://", "").replace("https://", "") for l in page.links if l.url[:4] == "http"]
+		link_list = link_list + [l.replace("www.", "") for l in link_list]
 	except UnicodeDecodeError:
 		return []
 	return link_list
@@ -100,30 +101,18 @@ def get_reward(url, A_company, company_urls):
 
 
 # Company i.e. reward URLs
-companies_df = pd.read_csv('../data/domains_clean.csv')
-companies_df = companies_df[companies_df['vert_code'] <= 69203]
-companies_df = companies_df[companies_df['vert_code'] >= 69101]
-reward_urls = companies_df['url'].tolist()
-reward_urls = [l.replace("http://", "").replace("https://", "") for l in reward_urls]
-A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
+links_df = pd.read_csv("new_data/links_dataframe.csv")
+reward_urls = links_df[links_df['type']=='company-url']['url']
+reward_urls = [l.replace("www.", "") for l in reward_urls]
+A_company = init_automaton(reward_urls)  # Aho-corasick automaton
 A_company.make_automaton()
-
-links_df = pd.read_csv('data/links_dataframe.csv')
-url_list = links_df['url'].tolist()
-url_list = [l.replace("http://", "").replace("https://", "") for l in url_list if type(l) is str if l[-4:] not in [".png", ".jpg", ".pdf", ".txt"]]
-
-# Read in backlinks
-backlinks = pd.read_csv('data/backlinks_clean.csv')
+url_set = set(links_df['url'].tolist())
+url_list = list(url_set)
 
 # Read random sample of URLs
-# test_urls = pd.read_csv("data/random_test_url_sample.csv")['url'].tolist()  # random URLs
-test_urls = pd.read_csv("data/random_test_url_sample.csv")['url'].tolist()  # random visited URLs
+test_urls = pd.read_csv("data/random_url_sample.csv")['url'].tolist()  # random visited URLs
 
-# Get value of a random URL
-gamma = 0.75
-crawled_pages = 0
-path_to_reward = 0
-
+gamma = 0.9
 results_dict = OrderedDict([('url', []), ('true_value', [])])
 
 for idx, url in enumerate(test_urls):
@@ -139,7 +128,6 @@ for idx, url in enumerate(test_urls):
 
 	# print("First links...")
 	first_hop_links = get_list_of_links(url)
-	first_hop_links = append_backlinks(url, backlinks, first_hop_links)
 	if len(first_hop_links) == 0:
 		# print("No first hop links")
 		# print("Return of {} is {}".format(url, 0))
@@ -156,8 +144,6 @@ for idx, url in enumerate(test_urls):
 
 	# print("Second links...")
 	second_hop_links = get_all_links(first_hop_links)
-	backlink_list = backlinks[backlinks['url'].isin(first_hop_links)]['back_url'].tolist()
-	second_hop_links += backlink_list
 
 	if len(second_hop_links) == 0:
 		# print("No second hop links")
@@ -172,31 +158,12 @@ for idx, url in enumerate(test_urls):
 		# path_to_reward += 1
 		results_dict['true_value'].append(gamma**2)
 		continue
-
-	# print("Third links...")
-	third_hop_links = get_all_links(second_hop_links)
-	backlink_list = backlinks[backlinks['url'].isin(second_hop_links)]['back_url'].tolist()
-	third_hop_links += backlink_list
-
-	if len(third_hop_links) == 0:
-		# print("No third hop links")
-		# print("Return of {} is {}".format(url, 0))
-		results_dict['true_value'].append(0)
-		continue
-
-	# print("Checking reward...")
-	r = sum(check_strings(A_company, reward_urls, " ".join(third_hop_links)))
-	if r >= 1:
-		# print("Return of {} is {}".format(url, r*gamma**3))
-		# path_to_reward += 1
-		results_dict['true_value'].append(gamma**3)
-		continue
 	else:
 		results_dict['true_value'].append(0)
 
-	# print("Return of {} is {}".format(url, 0))
+
 print("\nSaving Results...")
 print(len(results_dict['url']))
 print(len(results_dict['true_value']))
-pd.DataFrame.from_dict(results_dict).to_csv("results/linear_dqn_results/actual_value_revisit.csv", index=False)
+pd.DataFrame.from_dict(results_dict).to_csv("results/actual_value_revisit.csv", index=False)
 print("Done.")

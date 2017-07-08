@@ -61,6 +61,7 @@ def get_list_of_links(url, s=storage):
 		return []
 	try:
 		link_list = [l.url.replace("http://", "").replace("https://", "") for l in page.links if l.url[:4] == "http"]
+		link_list = link_list + [l.replace("www.", "") for l in link_list]
 	except UnicodeDecodeError:
 		return []
 	return link_list
