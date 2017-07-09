@@ -188,9 +188,9 @@ def main():
 	print_freq = 1000
 	start_eps = 0.2
 	end_eps = 0.05
-	eps_decay = 3 / num_steps
+	eps_decay = 2 / num_steps
 	epsilon = start_eps
-	gamma = 0.8
+	gamma = 0.9
 	learning_rate = 0.001
 	priority = False
 	train_sample_size = 1

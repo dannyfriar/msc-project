@@ -15,7 +15,7 @@ from collections import OrderedDict
 from sklearn.feature_extraction.text import CountVectorizer
 
 from evolutionai import StorageEngine
-storage = StorageEngine("/nvme/webcache/")
+storage = StorageEngine("/nvme/rl_project_webcache/")
 
 from nltk.corpus import stopwords, words, names
 stops = stopwords.words("english")
@@ -48,6 +48,7 @@ def get_list_of_links(url, s=storage):
 		return []
 	try:
 		link_list = [l.url.replace("http://", "").replace("https://", "") for l in page.links if l.url[:4] == "http"]
+		link_list = link_list + [l.replace("www.", "") for l in link_list]
 	except UnicodeDecodeError:
 		return []
 	return link_list
@@ -55,15 +56,6 @@ def get_list_of_links(url, s=storage):
 def lookup_domain_name(links_df, domain_url):
 	"""Returns list of all URLs within domain web site (in database)"""
 	return links_df[links_df['domain'].values == domain_url]['url'].tolist()
-
-def append_backlinks(url, backlinks, link_list):
-	"""Get the backlink for the URL, returns a string"""
-	backlink =  backlinks[backlinks['url'].values == url]['back_url'].tolist()
-	if len(backlink) == 0:
-		return link_list
-	link_list.append(backlink[0])
-	return link_list
-
 
 ##-----------------------------------------------------------
 ##-------- String Functions ---------------------------------
@@ -84,9 +76,8 @@ def check_strings(A, search_list, string_to_search):
 	output_list[index_list] = 1
 	return output_list.tolist()
 
-def build_url_feature_matrix(word_dict, url_list, revisit, found_rewards):
+def build_url_feature_matrix(count_vec, url_list, revisit, found_rewards):
 	"""Return 2d numpy array of booleans"""
-	count_vec = CountVectorizer(vocabulary=word_dict)
 	feature_matrix = count_vec.transform(url_list).toarray()
 	if revisit == True:
 		return feature_matrix
@@ -96,6 +87,13 @@ def build_url_feature_matrix(word_dict, url_list, revisit, found_rewards):
 
 ##-----------------------------------------------------------
 ##-------- RL Functions -------------------------------------
+def get_random_url(url_list, recent_urls):
+	"""Get random url that is not in list of recent URLs"""
+	url = random.choice(url_list)
+	while url in recent_urls:
+		url = random.choice(url_list)
+	return url
+
 def get_reward(url, A_company, company_urls):
 	"""Return 1 if company URL, 0 otherwise"""
 	idx_list = check_strings(A_company, company_urls, url)
@@ -112,25 +110,54 @@ def epsilon_greedy(epsilon, action_list):
 		return random.randint(0, len(action_list)-1)
 
 ##-----------------------------------------------------------
+##-------- Buffer -------------------------------------------
+class Buffer(object):
+	def __init__(self):
+		self.min_buffer_size = 1
+		self.max_buffer_size = 1000
+		self.buffer = []
+
+	def update(self, s, r, s_prime, is_terminal):
+		self.buffer.append((s, s_prime, r, is_terminal, 0))
+		if len(self.buffer) > self.max_buffer_size:
+			self.buffer = self.buffer[1:]
+
+	def add_loss(self, idx, loss):
+		"""Add neural net loss to buffer element"""
+		b = self.buffer[idx]
+		self.buffer[idx] = (b[0], b[1], b[2], b[3], loss)
+
+	def sample(self, state, next_state, reward, is_terminal, priority):
+		if len(self.buffer) >= self.min_buffer_size:
+			if priority == True and random.uniform(0, 1) > 0.5:
+				loss_list = [b[4] for b in self.buffer]
+				idx = np.argmax(loss_list)
+			else:
+				idx = random.randint(0, len(self.buffer)-1)
+
+			buffer_tuple = self.buffer[idx]
+			train_dict = {
+					state: buffer_tuple[0], next_state: buffer_tuple[1],
+					reward: buffer_tuple[2], is_terminal: buffer_tuple[3]
+			}
+			return True, idx, train_dict
+		return False, -1, None
+
+##-----------------------------------------------------------
 ##-------- DQN Agent ----------------------------------------
 class CrawlerAgent(object):
-	def __init__(self, weights_shape, train_save_location, tf_model_folder, gamma=0.99, learning_rate=0.01):
+	def __init__(self, weights_shape, tf_model_folder, priority, gamma=0.99, learning_rate=0.01):
 		# Set up training parameters and TF placeholders
 		self.gamma = gamma  # discount factor
 		self.learning_rate = learning_rate
 		self.weights_shape = weights_shape
+		self.priority = priority
 		self.state = tf.placeholder(dtype=tf.float32, shape=[None, self.weights_shape])
 		self.next_state = tf.placeholder(dtype=tf.float32, shape=[None, self.weights_shape])
 		self.reward = tf.placeholder(dtype=tf.float32)
 		self.is_terminal = tf.placeholder(dtype=tf.float32)
 		self.build_target_net()
 		self.build_train_net()
-
-		# Train/test results dicts + model saving
-		self.train_results_dict = OrderedDict([('pages_crawled', []), ('total_reward', []), ('terminal_states', []), ('nn_loss', [])])
-		self.test_results_dict = OrderedDict([('pages_crawled', []), ('total_reward', []), ('terminal_states', [])])
-		self.train_save_location = train_save_location
-		# self.test_save_location = test_save_location
 		self.tf_model_folder = tf_model_folder
 
 	def build_target_net(self):
@@ -171,13 +198,8 @@ class CrawlerAgent(object):
 		for op in op_list:
 			sess.run(op)
 
-	def save_train_results(self):
-		train_results_df = pd.DataFrame(self.train_results_dict)
-		train_results_df.to_csv(self.train_save_location, index=False, header=True)
-
-	def save_test_results(self):
-		test_results_df = pd.DataFrame(self.test_results_dict)
-		test_results_df.to_csv(self.test_save_location, index=False, header=True)
+	def sample_buffer(self):
+		return self.buffer.sample(self.state, self.next_state, self.reward, self.is_terminal, priority=self.priority)
 
 	def save_tf_model(self, tf_session, tf_saver):
 		tf_saver.save(tf_session, "/".join([self.tf_model_folder, "tf_model"]))
@@ -196,29 +218,26 @@ def main():
 	end_eps = 0.05
 	eps_decay = 2 / num_steps
 	epsilon = start_eps
-	# epsilon = 0.1
 	gamma = 0.9
 	learning_rate = 0.001
+	priority = False
+	train_sample_size = 1
 	reload_model = False
 
 	##-------------------- Read in data
-	# Read in all URls, backlinks data and list of keywords
-	links_df = pd.read_csv('data/links_dataframe.csv')
-	url_list = links_df['url'].tolist()
-	url_list = [l.replace("http://", "").replace("https://", "") for l in url_list if type(l) is str if l[-4:] not in [".png", ".jpg", ".pdf", ".txt"]]
-	url_set = set(url_list)
-	backlinks = pd.read_csv('data/backlinks_clean.csv')
+	links_df = pd.read_csv("new_data/links_dataframe.csv")
+	reward_urls = links_df[links_df['type']=='company-url']['url']
+	reward_urls = [l.replace("www.", "") for l in reward_urls]
+	A_company = init_automaton(reward_urls)  # Aho-corasick automaton
+	A_company.make_automaton()
+	url_set = set(links_df['url'].tolist())
+	url_list = list(url_set)
+
+	# Read in list of keywords
 	words_list = pd.read_csv("data/segmented_words_df.csv")['word'].tolist()
-	# words_list = pd.read_csv("data/punc_split_words_df.csv")['word'].tolist()
 	word_dict = dict(zip(words_list, list(range(len(words_list)))))
 	count_vec = CountVectorizer(vocabulary=word_dict)
 	weights_shape = len(words_list)
-
-	# Read in company URLs
-	reward_urls = [l.replace("www.", "") for l in links_df[links_df['hops']==0]['url'].tolist()]
-	reward_urls = list(set(reward_urls))
-	A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
-	A_company.make_automaton()
 
 	# Set paths
 	if args.run == "no-revisit":
@@ -226,21 +245,19 @@ def main():
 		weights_shape += 1
 		all_urls_file = RESULTS_FOLDER + "all_urls.csv"
 		model_save_file = MODEL_FOLDER + "deep_model"
-		results_save_file = RESULTS_FOLDER + "dqn_crawler_train_results.csv"
-		feature_coefs_save_file = RESULTS_FOLDER + "feature_coefficients.csv"
+		test_value_files = RESULTS_FOLDER + "test_value.csv"
 	else:
 		revisit = True
 		all_urls_file = RESULTS_FOLDER + "all_urls_revisit.csv"
 		model_save_file = MODEL_FOLDER + "deep_model_revisit"
-		results_save_file = RESULTS_FOLDER + "dqn_crawler_train_results_revisit.csv"
-		feature_coefs_save_file = RESULTS_FOLDER + "feature_coefficients_revisit.csv"
+		test_value_files = RESULTS_FOLDER + "test_value_revisit.csv"
 
 	##------------------- Initialize Crawler Agent and TF graph/session
 	step_count = 0; pages_crawled = 0; total_reward = 0; terminal_states = 0
 	recent_urls = []; reward_pages = []; found_rewards = []; reward_domain_set = set()
 
 	tf.reset_default_graph()
-	agent = CrawlerAgent(weights_shape, results_save_file, model_save_file, gamma=gamma, learning_rate=learning_rate)
+	agent = CrawlerAgent(weights_shape, model_save_file, gamma=gamma, learning_rate=learning_rate)
 	init = tf.global_variables_initializer()
 	saver = tf.train.Saver()
 
@@ -252,10 +269,12 @@ def main():
 			saver = tf.train.import_meta_graph(model_save_file+"/tf_model.meta")
 			saver.restore(sess, tf.train.latest_checkpoint(model_save_file))
 			all_vars = tf.get_collection('vars')
-			# weights_df = pd.DataFrame.from_dict({'words':words_list, 
-				# 'coef': agent.weights.eval().reshape(-1).tolist()})
-			# weights_df.to_csv("results/feature_coefficients.csv", index=False, header=True)
-			# weights_df.to_csv("results/deep_dqn_results/feature_coefficients_revisit.csv", index=False, header=True)
+
+			# Test URLs
+			test_urls = pd.read_csv("data/random_url_sample.csv")['url'].tolist()
+			state_array = build_url_feature_matrix(count_vec, test_urls, revisit, found_rewards)
+			v = sess.run(agent.v, feed_dict={agent.state: state_array}).reshape(-1).tolist()
+			pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv(test_value_files, index=False)
 
 		else:
 			##------------------ Run and train crawler agent -----------------------
@@ -264,7 +283,7 @@ def main():
 				os.remove(all_urls_file)
 
 			while step_count < num_steps:
-				url = random.choice(list(url_set - set(recent_urls)))  # don't start at recent URL
+				url = get_random_url(url_list, recent_urls)
 				steps_without_terminating = 0
 
 				while step_count < num_steps:
@@ -279,7 +298,6 @@ def main():
 					r, reward_url_idx = get_reward(url, A_company, reward_urls)
 					pages_crawled += 1
 					total_reward += r
-					agent.train_results_dict['total_reward'].append(total_reward)
 					if r > 0:
 						reward_pages.append(url)
 						if revisit == False:
@@ -292,7 +310,6 @@ def main():
 					# Feature representation of current page (state) and links in page
 					state = build_url_feature_matrix(words_list, [url], revisit, found_rewards)
 					link_list = get_list_of_links(url)
-					link_list = append_backlinks(url, backlinks, link_list)
 					link_list = set(link_list).intersection(url_set)
 					link_list = list(link_list - set(recent_urls))
 
@@ -304,8 +321,7 @@ def main():
 					else:
 						is_terminal = 0
 						steps_without_terminating += 1
-						next_state_array = build_url_feature_matrix(words_list, link_list, revisit, found_rewards)
-					agent.train_results_dict['terminal_states'].append(terminal_states)
+						next_state_array = build_url_feature_matrix(count_vec, link_list, revisit, found_rewards)
 
 					# Train DQN
 					train_dict = {
