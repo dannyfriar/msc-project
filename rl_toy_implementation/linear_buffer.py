@@ -77,9 +77,8 @@ def check_strings(A, search_list, string_to_search):
 	output_list[index_list] = 1
 	return output_list.tolist()
 
-def build_url_feature_matrix(word_dict, url_list, revisit, found_rewards):
+def build_url_feature_matrix(count_vec, url_list, revisit, found_rewards):
 	"""Return 2d numpy array of booleans"""
-	count_vec = CountVectorizer(vocabulary=word_dict)
 	feature_matrix = count_vec.transform(url_list).toarray()
 	if revisit == True:
 		return feature_matrix
@@ -185,18 +184,17 @@ def main():
 	##-------------------- Parameters
 	cycle_freq = 50
 	term_steps = 50
-	num_steps = 50000  # no. crawled pages before stopping
+	num_steps = 100000  # no. crawled pages before stopping
 	print_freq = 1000
-	copy_steps = 100
 	start_eps = 0.2
 	end_eps = 0.05
 	eps_decay = 2 / num_steps
 	epsilon = start_eps
-	gamma = 0.75
+	gamma = 0.9
 	learning_rate = 0.001
-	priority = True
+	priority = False
 	train_sample_size = 1
-	reload_model = False
+	reload_model = True
 
 	##-------------------- Read in data
 	links_df = pd.read_csv("new_data/links_dataframe.csv")
@@ -206,7 +204,6 @@ def main():
 	A_company.make_automaton()
 	url_set = set(links_df['url'].tolist())
 	url_list = list(url_set)
-	shuffled_url_list = random.shuffle(url_list)
 
 	# Read in list of keywords
 	words_list = pd.read_csv("data/segmented_words_df.csv")['word'].tolist()
@@ -220,10 +217,14 @@ def main():
 		weights_shape += 1
 		all_urls_file = RESULTS_FOLDER + "all_urls.csv"
 		model_save_file = MODEL_FOLDER + "linear_buffer_model"
+		feature_coefs_save_file = RESULTS_FOLDER + "feature_coefficients.csv"
+		test_value_files = RESULTS_FOLDER + "test_value.csv"
 	else:
 		revisit = True
 		all_urls_file = RESULTS_FOLDER + "all_urls_revisit.csv"
 		model_save_file = MODEL_FOLDER + "linear_buffer_model_revisit"
+		feature_coefs_save_file = RESULTS_FOLDER + "feature_coefficients_revisit.csv"
+		test_value_files = RESULTS_FOLDER + "test_value_revisit.csv"
 
 	##------------------- Initialize Crawler Agent and TF graph/session
 	step_count = 0; pages_crawled = 0; total_reward = 0; terminal_states = 0
@@ -262,7 +263,7 @@ def main():
 				os.remove(all_urls_file)
 
 			while step_count < num_steps:
-				url = random.choice(list(url_set - set(recent_urls)))  # don't start at recent URL
+				url = get_random_url(url_list, recent_urls)
 				steps_without_terminating = 0
 
 				while step_count < num_steps:
@@ -287,7 +288,7 @@ def main():
 							A_company.make_automaton()
 					
 					# Feature representation of current page (state) and links in page
-					state = build_url_feature_matrix(words_list, [url], revisit, found_rewards)
+					state = build_url_feature_matrix(count_vec, [url], revisit, found_rewards)
 					link_list = get_list_of_links(url)
 					link_list = set(link_list).intersection(url_set)
 					link_list = list(link_list - set(recent_urls))
@@ -300,7 +301,7 @@ def main():
 					else:
 						is_terminal = 0
 						steps_without_terminating += 1
-						next_state_array = build_url_feature_matrix(words_list, link_list, revisit, found_rewards)
+						next_state_array = build_url_feature_matrix(count_vec, link_list, revisit, found_rewards)
 
 					# Update buffer
 					agent.buffer.update(state, r, next_state_array, is_terminal)
@@ -324,7 +325,7 @@ def main():
 
 					with open(all_urls_file, "a") as csv_file:
 						writer = csv.writer(csv_file, delimiter=',')
-						writer.writerow([url, r, is_terminal])
+						writer.writerow([url, r, is_terminal, float(loss)])
 
 					# Decay epsilon
 					if epsilon > end_eps:

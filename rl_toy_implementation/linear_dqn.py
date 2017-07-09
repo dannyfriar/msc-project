@@ -149,7 +149,7 @@ def main():
 	##-------------------- Parameters
 	cycle_freq = 50
 	term_steps = 50
-	num_steps = 50000  # no. crawled pages before stopping
+	num_steps = 100000  # no. crawled pages before stopping
 	print_freq = 1000
 	start_eps = 0.2
 	end_eps = 0.05
@@ -284,7 +284,7 @@ def main():
 
 					with open(all_urls_file, "a") as csv_file:
 						writer = csv.writer(csv_file, delimiter=',')
-						writer.writerow([url, r, is_terminal])
+						writer.writerow([url, r, is_terminal, float(loss)])
 
 					# Decay epsilon
 					if epsilon > end_eps:
