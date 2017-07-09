@@ -211,7 +211,7 @@ def main():
 	##-------------------- Parameters
 	cycle_freq = 50
 	term_steps = 50
-	num_steps = 50000  # no. crawled pages before stopping
+	num_steps = 100000  # no. crawled pages before stopping
 	print_freq = 1000
 	copy_steps = 100
 	start_eps = 0.2
@@ -257,7 +257,7 @@ def main():
 	recent_urls = []; reward_pages = []; found_rewards = []; reward_domain_set = set()
 
 	tf.reset_default_graph()
-	agent = CrawlerAgent(weights_shape, model_save_file, gamma=gamma, learning_rate=learning_rate)
+	agent = CrawlerAgent(weights_shape, model_save_file, priority, gamma=gamma, learning_rate=learning_rate)
 	init = tf.global_variables_initializer()
 	saver = tf.train.Saver()
 
@@ -308,7 +308,7 @@ def main():
 							A_company.make_automaton()
 					
 					# Feature representation of current page (state) and links in page
-					state = build_url_feature_matrix(words_list, [url], revisit, found_rewards)
+					state = build_url_feature_matrix(count_vec, [url], revisit, found_rewards)
 					link_list = get_list_of_links(url)
 					link_list = set(link_list).intersection(url_set)
 					link_list = list(link_list - set(recent_urls))
@@ -323,13 +323,19 @@ def main():
 						steps_without_terminating += 1
 						next_state_array = build_url_feature_matrix(count_vec, link_list, revisit, found_rewards)
 
-					# Train DQN
-					train_dict = {
-							agent.state: state, agent.next_state: next_state_array, 
-							agent.reward: r, agent.is_terminal: is_terminal
-					}
-					opt, loss, v_next  = sess.run([agent.opt, agent.loss, agent.v_next], feed_dict=train_dict)
-					agent.train_results_dict['nn_loss'].append(float(loss))
+					# Update buffer
+					agent.buffer.update(state, r, next_state_array, is_terminal)
+					train, idx, train_dict = agent.sample_buffer()
+
+					# Train DQN and compute values for the next states
+					if train == True:
+						opt, loss, v_next  = sess.run([agent.opt, agent.loss, agent.v_next], feed_dict=train_dict)
+						agent.buffer.add_loss(idx, loss)
+						for _ in range(train_sample_size-1):
+							_, idx, train_dict = agent.sample_buffer()
+							opt, loss, _  = sess.run([agent.opt, agent.loss, agent.v_next], feed_dict=train_dict)
+							agent.buffer.add_loss(idx, loss)
+					v_next  = sess.run(agent.v_next, feed_dict={agent.next_state: next_state_array})
 
 					# Copy parameters every copy_steps transitions
 					if step_count % copy_steps == 0:
@@ -340,11 +346,10 @@ def main():
 					if step_count % print_freq == 0:
 						print("\nCrawled {} pages, total reward = {}, # terminal states = {}, remaining rewards = {}"\
 						.format(pages_crawled, total_reward, terminal_states, len(reward_urls)))
-					agent.train_results_dict['pages_crawled'].append(pages_crawled)
 
 					with open(all_urls_file, "a") as csv_file:
 						writer = csv.writer(csv_file, delimiter=',')
-						writer.writerow([url, r, is_terminal])
+						writer.writerow([url, r, is_terminal, float(loss)])
 
 					# Decay epsilon
 					if epsilon > end_eps:
@@ -361,7 +366,6 @@ def main():
 
 			print("\nCrawled {} pages, total reward = {}, # terminal states = {}"\
 				.format(pages_crawled, total_reward, terminal_states))
-			agent.save_train_results()
 			agent.save_tf_model(sess, saver)
 
 	sess.close()
