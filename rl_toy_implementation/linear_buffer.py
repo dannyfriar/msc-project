@@ -45,7 +45,7 @@ def get_list_of_links(url, s=storage):
 			page = s.get_page("www."+url+"/")
 		if page is None:
 			return []
-	except UnicodeError:
+	except (UnicodeError, ValueError) as e:
 		return []
 	try:
 		link_list = [l.url.replace("http://", "").replace("https://", "") for l in page.links if l.url[:4] == "http"]
@@ -129,30 +129,30 @@ class Buffer(object):
 		"""Add neural net loss to buffer element"""
 		b = self.buffer[idx]
 		self.buffer[idx] = (b[0], b[1], b[2], b[3], loss)
+		self.buffer = sorted(self.buffer, key=lambda x: int(x[4]), reverse=True)
 
-	def sample(self, state, next_state, reward, is_terminal, priority):
+	def sample(self, state, next_state, reward, is_terminal, sample_weight, priority):
 		if len(self.buffer) >= self.min_buffer_size:
-			if priority == True and random.uniform(0, 1) > 0.5:
-				loss_list = [b[4] for b in self.buffer]
-				idx = np.argmax(loss_list)
+			if priority == True:
+				probs = [i for i in range(1, len(self.buffer)+1)]
+				probs = [p**self.alpha for p in probs]
+				probs = [p/sum(probs) for p in probs]
+				idx = np.abs(np.array(probs) - random.uniform(0, 1)).argmin()
+				max_weight = (1/min(probs))**self.beta
+				weight = (1/probs[idx])**self.beta / max_weight
 			else:
 				idx = random.randint(0, len(self.buffer)-1)
+				weight = 1
 
 			buffer_tuple = self.buffer[idx]
 			train_dict = {
 					state: buffer_tuple[0], next_state: buffer_tuple[1],
-					reward: buffer_tuple[2], is_terminal: buffer_tuple[3]
+					reward: buffer_tuple[2], is_terminal: buffer_tuple[3],
+					sample_weight: weight
 			}
 			return True, idx, train_dict
 		return False, -1, None
 
-	def priority_sample(self):
-		self.buffer = sorted(self.buffer, key=lambda x: int(x[4]), reverse=True)
-		probs = [1/i for i in range(len(self.buffer))]
-		probs = [p**alpha for p in probs]
-		probs = [p/sum(probs) for p in probs]
-		idx = np.abs(np.array(probs) - random.uniform(0, 1)).argmin()
-		weight = (1/probs[idx])**self.beta
 
 ##-----------------------------------------------------------
 ##-------- DQN Agent ----------------------------------------
@@ -167,6 +167,7 @@ class CrawlerAgent(object):
 		self.next_state = tf.placeholder(dtype=tf.float32, shape=[None, self.weights_shape])
 		self.reward = tf.placeholder(dtype=tf.float32)
 		self.is_terminal = tf.placeholder(dtype=tf.float32)
+		self.sample_weight = tf.placeholder(dtype=tf.float32)
 		self.build_target_net()
 		self.buffer = Buffer()
 		self.tf_model_folder = tf_model_folder
@@ -178,11 +179,12 @@ class CrawlerAgent(object):
 		self.v = tf.matmul(self.state, self.weights) + self.bias
 		self.v_next = tf.matmul(self.next_state, self.weights) + self.bias
 		self.target = self.reward + (1-self.is_terminal) * self.gamma * tf.stop_gradient(tf.reduce_max(self.v_next))
-		self.loss = tf.square(self.target - self.v)/2
+		self.loss = self.sample_weight * tf.square(self.target - self.v)/2
 		self.opt = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.loss)
 
 	def sample_buffer(self):
-		return self.buffer.sample(self.state, self.next_state, self.reward, self.is_terminal, priority=self.priority)
+		return self.buffer.sample(self.state, self.next_state, self.reward, 
+			self.is_terminal, self.sample_weight, priority=self.priority)
 
 	def save_tf_model(self, tf_session, tf_saver):
 		tf_saver.save(tf_session, "/".join([self.tf_model_folder, "tf_model"]))
@@ -202,9 +204,9 @@ def main():
 	epsilon = start_eps
 	gamma = 0.9
 	learning_rate = 0.001
-	priority = False
+	priority = True
 	train_sample_size = 1
-	reload_model = True
+	reload_model = False
 
 	##-------------------- Read in data
 	links_df = pd.read_csv("new_data/links_dataframe.csv")
@@ -340,6 +342,8 @@ def main():
 					# Decay epsilon
 					if epsilon > end_eps:
 						epsilon = epsilon - eps_decay
+
+					# input("Press enter to continue...")
 
 					# Choose next URL (and check for looping)
 					if is_terminal == 1:
