@@ -115,7 +115,9 @@ def epsilon_greedy(epsilon, action_list):
 class Buffer(object):
 	def __init__(self):
 		self.min_buffer_size = 1
-		self.max_buffer_size = 1000
+		self.max_buffer_size = 2000
+		self.alpha = 0.5
+		self.beta = 1
 		self.buffer = []
 
 	def update(self, s, r, s_prime, is_terminal):
@@ -143,6 +145,14 @@ class Buffer(object):
 			}
 			return True, idx, train_dict
 		return False, -1, None
+
+	def priority_sample(self):
+		self.buffer = sorted(self.buffer, key=lambda x: int(x[4]), reverse=True)
+		probs = [1/i for i in range(len(self.buffer))]
+		probs = [p**alpha for p in probs]
+		probs = [p/sum(probs) for p in probs]
+		idx = np.abs(np.array(probs) - random.uniform(0, 1)).argmin()
+		weight = (1/probs[idx])**self.beta
 
 ##-----------------------------------------------------------
 ##-------- DQN Agent ----------------------------------------
