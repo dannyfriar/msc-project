@@ -206,7 +206,7 @@ def main():
 	learning_rate = 0.001
 	priority = True
 	train_sample_size = 1
-	reload_model = True
+	reload_model = False
 
 	##-------------------- Read in data
 	links_df = pd.read_csv("new_data/links_dataframe.csv")

@@ -152,10 +152,11 @@ def main():
 	num_steps = 100000  # no. crawled pages before stopping
 	print_freq = 1000
 	start_eps = 0.2
-	end_eps = 0.05
-	eps_decay = 2 / num_steps
+	end_eps = 0
+	eps_decay = 1.5 / num_steps
 	epsilon = start_eps
-	gamma = 0.9
+	# epsilon = 0.05
+	gamma = 0.0
 	learning_rate = 0.001
 	reload_model = True
 
