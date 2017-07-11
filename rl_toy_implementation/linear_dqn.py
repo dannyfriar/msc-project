@@ -162,8 +162,14 @@ def main():
 
 	##-------------------- Read in data
 	links_df = pd.read_csv("new_data/links_dataframe.csv")
+	rm_list = ['aarp.org', 'akc.org', 'alcon.com', 'lincoln.com', 'orlakiely.com', 
+	'red.com', 'ef.com', 'ozarksfirst.com']
+	links_df['domain'] = links_df.domain.str.replace("www.", "")
+	links_df = links_df[~links_df['domain'].isin(rm_list)]
 	reward_urls = links_df[links_df['type']=='company-url']['url']
 	reward_urls = [l.replace("www.", "") for l in reward_urls]
+	
+	reward_urls = [l for l in reward_urls if l not in rm_list]
 	A_company = init_automaton(reward_urls)  # Aho-corasick automaton
 	A_company.make_automaton()
 	url_set = set(links_df['url'].tolist())

@@ -204,16 +204,20 @@ def main():
 	print_freq = 1000
 	start_eps = 0.2
 	end_eps = 0.05
-	eps_decay = 2 / num_steps
+	eps_decay = 1.5 / num_steps
 	epsilon = start_eps
 	gamma = 0.9
 	learning_rate = 0.001
-	priority = False
+	priority = True
 	train_sample_size = 1
 	reload_model = False
 
 	##-------------------- Read in data
 	links_df = pd.read_csv("new_data/links_dataframe.csv")
+	rm_list = ['aarp.org', 'akc.org', 'alcon.com', 'lincoln.com', 'orlakiely.com', 
+	'red.com', 'ef.com', 'ozarksfirst.com']
+	links_df['domain'] = links_df.domain.str.replace("www.", "")
+	links_df = links_df[~links_df['domain'].isin(rm_list)]
 	reward_urls = links_df[links_df['type']=='company-url']['url']
 	reward_urls = [l.replace("www.", "") for l in reward_urls]
 	A_company = init_automaton(reward_urls)  # Aho-corasick automaton
@@ -359,8 +363,6 @@ def main():
 					# Decay epsilon
 					if epsilon > end_eps:
 						epsilon = epsilon - eps_decay
-
-					# input("Press enter to continue...")
 
 					# Choose next URL (and check for looping)
 					if is_terminal == 1:
