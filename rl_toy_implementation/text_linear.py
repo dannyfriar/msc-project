@@ -218,10 +218,10 @@ def main():
 			weights_df.to_csv(feature_coefs_save_file, index=False, header=True)
 
 			# Test URLs
-			test_urls = pd.read_csv("data/random_url_sample.csv")['url'].tolist()
-			state_array = build_url_feature_matrix(count_vec, test_urls, revisit, found_rewards)
-			v = sess.run(agent.v, feed_dict={agent.state: state_array}).reshape(-1).tolist()
-			pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv(test_value_files, index=False)
+			# test_urls = pd.read_csv("data/random_url_sample.csv")['url'].tolist()
+			# state_array = build_url_feature_matrix(count_vec, text_count_vec, test_urls, revisit, found_rewards)
+			# v = sess.run(agent.v, feed_dict={agent.state: state_array}).reshape(-1).tolist()
+			# pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv(test_value_files, index=False)
 
 		else:
 			##------------------ Run and train crawler agent -----------------------
