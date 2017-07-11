@@ -130,7 +130,7 @@ class Buffer(object):
 		b = self.buffer[idx]
 		self.buffer[idx] = (b[0], b[1], b[2], b[3], loss)
 		if priority == True:
-			self.buffer = sorted(self.buffer, key=lambda x: int(x[4]), reverse=True)
+			self.buffer = sorted(self.buffer, key=lambda x: x[4], reverse=True)
 
 	def sample(self, state, next_state, reward, is_terminal, sample_weight, priority):
 		if len(self.buffer) >= self.min_buffer_size:

@@ -157,7 +157,7 @@ def main():
 	epsilon = start_eps
 	gamma = 0.9
 	learning_rate = 0.001
-	reload_model = True
+	reload_model = False
 
 	##-------------------- Read in data
 	links_df = pd.read_csv("new_data/links_dataframe.csv")
@@ -216,11 +216,8 @@ def main():
 			all_vars = tf.get_collection('vars')
 			if revisit == True:
 				weights_df = pd.DataFrame.from_dict({'words':words_list+text_word_list,
-				 'coef': agent.weights.eval().reshape(-1).tolist()})
-			else:
-				weights_df = pd.DataFrame.from_dict({'words':words_list+['prev_reward'], 
-					'coef': agent.weights.eval().reshape(-1).tolist()})
-			weights_df.to_csv(feature_coefs_save_file, index=False, header=True)
+				 'coef': agent.weights.eval().reshape(-1).tolist(), 
+				 'type':['url']*len(words_list)+['text']*len(text_word_list)})
 
 			# Test URLs
 			# test_urls = pd.read_csv("data/random_url_sample.csv")['url'].tolist()
@@ -258,6 +255,8 @@ def main():
 							reward_urls.pop(reward_url_idx)
 							A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
 							A_company.make_automaton()
+					else:
+						r = -0.05
 					
 					# Feature representation of current page (state) and links in page
 					state = build_url_feature_matrix(count_vec, text_count_vec, [url], [""], revisit, found_rewards)
