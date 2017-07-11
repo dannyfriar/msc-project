@@ -183,7 +183,7 @@ def main():
 		revisit = False
 		weights_shape += 1
 		all_urls_file = RESULTS_FOLDER + "all_urls.csv"
-		model_save_file = MODEL_FOLDER + "text_inear_buffer_model"
+		model_save_file = MODEL_FOLDER + "text_linear_buffer_model"
 		feature_coefs_save_file = RESULTS_FOLDER + "feature_coefficients.csv"
 		test_value_files = RESULTS_FOLDER + "test_value.csv"
 	else:
@@ -211,7 +211,8 @@ def main():
 			saver.restore(sess, tf.train.latest_checkpoint(model_save_file))
 			all_vars = tf.get_collection('vars')
 			if revisit == True:
-				weights_df = pd.DataFrame.from_dict({'words':words_list, 'coef': agent.weights.eval().reshape(-1).tolist()})
+				weights_df = pd.DataFrame.from_dict({'words':words_list+text_word_list,
+				 'coef': agent.weights.eval().reshape(-1).tolist()})
 			else:
 				weights_df = pd.DataFrame.from_dict({'words':words_list+['prev_reward'], 
 					'coef': agent.weights.eval().reshape(-1).tolist()})
