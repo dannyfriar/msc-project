@@ -125,17 +125,17 @@ class Buffer(object):
 		if len(self.buffer) > self.max_buffer_size:
 			self.buffer = self.buffer[1:]
 
-	def add_loss(self, idx, loss):
+	def add_loss(self, idx, loss, priority):
 		"""Add neural net loss to buffer element"""
 		b = self.buffer[idx]
 		self.buffer[idx] = (b[0], b[1], b[2], b[3], loss)
-		self.buffer = sorted(self.buffer, key=lambda x: int(x[4]), reverse=True)
+		if priority == True:
+			self.buffer = sorted(self.buffer, key=lambda x: int(x[4]), reverse=True)
 
 	def sample(self, state, next_state, reward, is_terminal, sample_weight, priority):
 		if len(self.buffer) >= self.min_buffer_size:
 			if priority == True:
-				probs = [i for i in range(1, len(self.buffer)+1)]
-				probs = [p**self.alpha for p in probs]
+				probs = [(1/i)**self.alpha for i in range(1, len(self.buffer)+1)]
 				probs = [p/sum(probs) for p in probs]
 				idx = np.abs(np.array(probs) - random.uniform(0, 1)).argmin()
 				max_weight = (1/min(probs))**self.beta
@@ -199,12 +199,12 @@ def main():
 	num_steps = 100000  # no. crawled pages before stopping
 	print_freq = 1000
 	start_eps = 0.2
-	end_eps = 0.05
-	eps_decay = 2 / num_steps
+	end_eps = 0
+	eps_decay = 1.5 / num_steps
 	epsilon = start_eps
 	gamma = 0.9
 	learning_rate = 0.001
-	priority = True
+	priority = False
 	train_sample_size = 1
 	reload_model = False
 
@@ -302,6 +302,8 @@ def main():
 							reward_urls.pop(reward_url_idx)
 							A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
 							A_company.make_automaton()
+					else:
+						r = -0.05
 					
 					# Feature representation of current page (state) and links in page
 					state = build_url_feature_matrix(count_vec, [url], revisit, found_rewards)
@@ -326,11 +328,11 @@ def main():
 					# Train DQN and compute values for the next states
 					if train == True:
 						opt, loss, v_next  = sess.run([agent.opt, agent.loss, agent.v_next], feed_dict=train_dict)
-						agent.buffer.add_loss(idx, loss)
+						agent.buffer.add_loss(idx, abs(float(loss)), priority)
 						for _ in range(train_sample_size-1):
 							_, idx, train_dict = agent.sample_buffer()
 							opt, loss, _  = sess.run([agent.opt, agent.loss, agent.v_next], feed_dict=train_dict)
-							agent.buffer.add_loss(idx, loss)
+							agent.buffer.add_loss(idx, abs(float(loss)), priority)
 					v_next  = sess.run(agent.v_next, feed_dict={agent.next_state: next_state_array})
 
 					# Print progress + save transitions
