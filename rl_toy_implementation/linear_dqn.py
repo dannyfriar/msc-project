@@ -156,7 +156,7 @@ def main():
 	eps_decay = 1.5 / num_steps
 	epsilon = start_eps
 	# epsilon = 0.05
-	gamma = 0.0
+	gamma = 0.9
 	learning_rate = 0.001
 	reload_model = True
 
@@ -221,9 +221,9 @@ def main():
 			weights_df.to_csv(feature_coefs_save_file, index=False, header=True)
 
 			# Test URLs
-			test_urls = random.sample(url_set, 20000)
-			pd.DataFrame.from_dict({'url':test_urls}).to_csv("data/random_url_sample.csv", index=False)
-			# test_urls = pd.read_csv("data/random_url_sample.csv")['url'].tolist()
+			# test_urls = random.sample(url_set, 20000)
+			# pd.DataFrame.from_dict({'url':test_urls}).to_csv("data/random_url_sample.csv", index=False)
+			test_urls = pd.read_csv("data/random_url_sample.csv")['url'].tolist()
 			state_array = build_url_feature_matrix(count_vec, test_urls, revisit, found_rewards)
 			v = sess.run(agent.v, feed_dict={agent.state: state_array}).reshape(-1).tolist()
 			pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv(test_value_files, index=False)
@@ -258,6 +258,8 @@ def main():
 							reward_urls.pop(reward_url_idx)
 							A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
 							A_company.make_automaton()
+					else:
+						r = -0.05
 					
 					# Feature representation of current page (state) and links in page
 					state = build_url_feature_matrix(count_vec, [url], revisit, found_rewards)
