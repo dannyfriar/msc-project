@@ -114,8 +114,9 @@ def epsilon_greedy(epsilon, action_list):
 ##-------- Buffer -------------------------------------------
 class Buffer(object):
 	def __init__(self):
-		self.min_buffer_size = 1
-		self.max_buffer_size = 2000
+		self.batch_size = 5
+		self.min_buffer_size = 2*self.batch_size
+		self.max_buffer_size = 5000
 		self.alpha = 0.5
 		self.beta = 1
 		self.buffer = []
@@ -132,7 +133,7 @@ class Buffer(object):
 		if priority == True:
 			self.buffer = sorted(self.buffer, key=lambda x: x[4], reverse=True)
 
-	def sample(self, state, next_state, reward, is_terminal, sample_weight, priority):
+	def sample(self, state, next_state, v_next_splits, reward, is_terminal, sample_weight, priority):
 		if len(self.buffer) >= self.min_buffer_size:
 			if priority == True:
 				probs = [(1/i)**self.alpha for i in range(1, len(self.buffer)+1)]
@@ -141,17 +142,23 @@ class Buffer(object):
 				max_weight = (1/min(probs))**self.beta
 				weight = (1/probs[idx])**self.beta / max_weight
 			else:
-				idx = random.randint(0, len(self.buffer)-1)
+				indices = random.sample(range(0, len(self.buffer)-1), self.batch_size)
 				weight = 1
 
-			buffer_tuple = self.buffer[idx]
+			s_sample = np.concatenate([self.buffer[i][0] for i in indices], axis=0)
+			s_prime_sample = [self.buffer[i][1] for i in indices]
+			s_prime_lengths = [s.shape[0] for s in s_prime_sample]
+			s_prime_sample = np.concatenate(s_prime_sample, axis=0)
+			r_sample = np.concatenate([np.array([self.buffer[i][2]]).reshape(-1, 1) for i in indices], axis=0)
+			t_sample = np.concatenate([np.array([1-self.buffer[i][3]]).reshape(-1, 1) for i in indices], axis=0)
+
 			train_dict = {
-					state: buffer_tuple[0], next_state: buffer_tuple[1],
-					reward: buffer_tuple[2], is_terminal: buffer_tuple[3],
+					state: s_sample, next_state: s_prime_sample,
+					reward: r_sample, is_terminal: t_sample,
 					sample_weight: weight
 			}
-			return True, idx, train_dict
-		return False, -1, None
+			return True, -1, train_dict, s_prime_lengths
+		return False, -1, None, []
 
 
 ##-----------------------------------------------------------
@@ -165,8 +172,9 @@ class CrawlerAgent(object):
 		self.priority = priority
 		self.state = tf.placeholder(dtype=tf.float32, shape=[None, self.weights_shape])
 		self.next_state = tf.placeholder(dtype=tf.float32, shape=[None, self.weights_shape])
-		self.reward = tf.placeholder(dtype=tf.float32)
-		self.is_terminal = tf.placeholder(dtype=tf.float32)
+		self.reward = tf.placeholder(dtype=tf.float32, shape=[None, 1])
+		self.is_terminal = tf.placeholder(dtype=tf.float32, shape=[None, 1])
+		self.v_next_splits = [1]
 		self.sample_weight = tf.placeholder(dtype=tf.float32)
 		self.build_target_net()
 		self.buffer = Buffer()
@@ -178,13 +186,17 @@ class CrawlerAgent(object):
 		self.bias = tf.get_variable('bias', [1], initializer=tf.constant_initializer(0.001))
 		self.v = tf.matmul(self.state, self.weights) + self.bias
 		self.v_next = tf.matmul(self.next_state, self.weights) + self.bias
-		self.target = self.reward + (1-self.is_terminal) * self.gamma * tf.stop_gradient(tf.reduce_max(self.v_next))
-		self.loss = self.sample_weight * tf.square(self.target - self.v)/2
+		v_next_list = tf.split(self.v_next, self.v_next_splits, 0)
+		v_next_list = [tf.reshape(tf.reduce_max(v, axis=0), [-1, 1]) for v in v_next_list]
+		self.v_prime = tf.concat(v_next_list, axis=0)
+		self.target = self.reward + self.gamma * tf.multiply(self.is_terminal, tf.stop_gradient(self.v_prime))
+		self.loss = tf.reduce_mean(tf.square(self.target - self.v) / 2)
 		self.opt = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.loss)
 
 	def sample_buffer(self):
-		return self.buffer.sample(self.state, self.next_state, self.reward, 
-			self.is_terminal, self.sample_weight, priority=self.priority)
+		train, idx, train_dict, self.v_next_splits = self.buffer.sample(self.state, self.next_state, 
+			self.v_next_splits, self.reward, self.is_terminal, self.sample_weight, priority=self.priority)
+		return train, idx, train_dict
 
 	def save_tf_model(self, tf_session, tf_saver):
 		tf_saver.save(tf_session, "/".join([self.tf_model_folder, "tf_model"]))
@@ -203,10 +215,10 @@ def main():
 	eps_decay = 1.5 / num_steps
 	epsilon = start_eps
 	gamma = 0.9
-	learning_rate = 0.001
+	learning_rate = 0.001 / 50
 	priority = False
-	train_sample_size = 1
-	reload_model = False
+	train_sample_size = 50
+	reload_model = True
 
 	##-------------------- Read in data
 	links_df = pd.read_csv("new_data/links_dataframe.csv")
@@ -328,11 +340,7 @@ def main():
 					# Train DQN and compute values for the next states
 					if train == True:
 						opt, loss, v_next  = sess.run([agent.opt, agent.loss, agent.v_next], feed_dict=train_dict)
-						agent.buffer.add_loss(idx, abs(float(loss)), priority)
-						for _ in range(train_sample_size-1):
-							_, idx, train_dict = agent.sample_buffer()
-							opt, loss, _  = sess.run([agent.opt, agent.loss, agent.v_next], feed_dict=train_dict)
-							agent.buffer.add_loss(idx, abs(float(loss)), priority)
+						# agent.buffer.add_loss(idx, abs(float(loss)), priority)
 					v_next  = sess.run(agent.v_next, feed_dict={agent.next_state: next_state_array})
 
 					# Print progress + save transitions
@@ -341,9 +349,10 @@ def main():
 						print("\nCrawled {} pages, total reward = {}, # terminal states = {}, remaining rewards = {}"\
 						.format(pages_crawled, total_reward, terminal_states, len(reward_urls)))
 
-					with open(all_urls_file, "a") as csv_file:
-						writer = csv.writer(csv_file, delimiter=',')
-						writer.writerow([url, r, is_terminal, float(loss)])
+					if train == True:
+						with open(all_urls_file, "a") as csv_file:
+							writer = csv.writer(csv_file, delimiter=',')
+							writer.writerow([url, r, is_terminal, float(loss)])
 
 					# Decay epsilon
 					if epsilon > end_eps:

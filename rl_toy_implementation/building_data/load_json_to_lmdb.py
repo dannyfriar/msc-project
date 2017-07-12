@@ -41,9 +41,10 @@ def stream_file(path, topic, client_id):
 	cctx = zstd.ZstdCompressor(level=22,write_content_size=True)
 	f = gzip.open(path, "rt")
 	count = 0
+	t0 = time.time()
 	for line in f:
 		count += 1
-		progress_bar(count, 800000)
+		# progress_bar(count, 800000)
 		if line[0] != "{":
 			continue
 		j = json.loads(line)
@@ -69,11 +70,17 @@ def stream_file(path, topic, client_id):
 			l.title = links[i].get("title", "")
 		payload = page.to_bytes()
 
+		if count > 100:
+			break
+
 		compressed = cctx.compress(payload)
 		page = webpage_capnp.Page.from_bytes(payload)
 
 		with env.begin(write=True) as txn:
 			txn.put(page.url[:500].encode("UTF-8"), compressed)
+
+	print(time.time()-t0)
+	input("Press enter to continue...")
 
 def main():
 	client_id = str(uuid.uuid4())[:8]
