@@ -215,9 +215,9 @@ def main():
 	eps_decay = 1.5 / num_steps
 	epsilon = start_eps
 	gamma = 0.9
-	learning_rate = 0.001 / 50
+	learning_rate = 0.0001
 	priority = False
-	train_sample_size = 50
+	train_sample_size = 20
 	reload_model = True
 
 	##-------------------- Read in data
@@ -314,8 +314,6 @@ def main():
 							reward_urls.pop(reward_url_idx)
 							A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
 							A_company.make_automaton()
-					else:
-						r = -0.05
 					
 					# Feature representation of current page (state) and links in page
 					state = build_url_feature_matrix(count_vec, [url], revisit, found_rewards)
@@ -340,7 +338,6 @@ def main():
 					# Train DQN and compute values for the next states
 					if train == True:
 						opt, loss, v_next  = sess.run([agent.opt, agent.loss, agent.v_next], feed_dict=train_dict)
-						# agent.buffer.add_loss(idx, abs(float(loss)), priority)
 					v_next  = sess.run(agent.v_next, feed_dict={agent.next_state: next_state_array})
 
 					# Print progress + save transitions
@@ -353,12 +350,14 @@ def main():
 						with open(all_urls_file, "a") as csv_file:
 							writer = csv.writer(csv_file, delimiter=',')
 							writer.writerow([url, r, is_terminal, float(loss)])
+					else:
+						with open(all_urls_file, "a") as csv_file:
+							writer = csv.writer(csv_file, delimiter=',')
+							writer.writerow([url, r, is_terminal, 0])
 
 					# Decay epsilon
 					if epsilon > end_eps:
 						epsilon = epsilon - eps_decay
-
-					# input("Press enter to continue...")
 
 					# Choose next URL (and check for looping)
 					if is_terminal == 1:
