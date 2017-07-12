@@ -148,7 +148,7 @@ class CrawlerAgent(object):
 def main():
 	##-------------------- Parameters
 	cycle_freq = 50
-	term_steps = 50
+	term_steps = 20
 	num_steps = 100000  # no. crawled pages before stopping
 	print_freq = 1000
 	start_eps = 0.2
@@ -218,7 +218,7 @@ def main():
 				weights_df = pd.DataFrame.from_dict({'words':words_list+text_word_list,
 				 'coef': agent.weights.eval().reshape(-1).tolist(), 
 				 'type':['url']*len(words_list)+['text']*len(text_word_list)})
-				weights_df.to_csv(feature_coefs_save_file, index=False, header=True)
+			weights_df.to_csv(feature_coefs_save_file, index=False, header=True)
 
 			# Test URLs
 			# test_urls = pd.read_csv("data/random_url_sample.csv")['url'].tolist()
