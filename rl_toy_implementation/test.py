@@ -45,7 +45,10 @@ url_list = list(set(links_df['url'].tolist()))
 for i in range(10):
 	url = random.choice(url_list)
 	print(url)
+	page = storage.get_page(url)
+	print(page)
 	print(np.sum(build_url_feature_matrix(count_vec, [url])))
+	stop
 
 
 

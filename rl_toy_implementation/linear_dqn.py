@@ -221,19 +221,18 @@ def main():
 			weights_df.to_csv(feature_coefs_save_file, index=False, header=True)
 
 			# Test URLs
-			# test_urls = random.sample(url_set, 20000)
-			# pd.DataFrame.from_dict({'url':test_urls}).to_csv("data/random_url_sample.csv", index=False)
-			# test_urls = pd.read_csv("data/random_url_sample.csv")['url'].tolist()
-			# state_array = build_url_feature_matrix(count_vec, test_urls, revisit, found_rewards)
-			# v = sess.run(agent.v, feed_dict={agent.state: state_array}).reshape(-1).tolist()
-			# pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv(test_value_files, index=False)
-
-
-			test_urls = pd.read_csv("results/linear_dqn_results/all_urls_revisit.csv", names=['url', 'v2', 'v3', 'v4'])['url'].tolist()
-			test_urls = test_urls[:2000]
+			test_urls = random.sample(url_set, 20000)
+			pd.DataFrame.from_dict({'url':test_urls}).to_csv("data/random_url_sample.csv", index=False)
+			test_urls = pd.read_csv("data/random_url_sample.csv")['url'].tolist()
 			state_array = build_url_feature_matrix(count_vec, test_urls, revisit, found_rewards)
 			v = sess.run(agent.v, feed_dict={agent.state: state_array}).reshape(-1).tolist()
-			pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv("results/linear_dqn_results/visited_value.csv", index=False)
+			pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv(test_value_files, index=False)
+
+			# test_urls = pd.read_csv("results/linear_dqn_results/all_urls_revisit.csv", names=['url', 'v2', 'v3', 'v4'])['url'].tolist()
+			# test_urls = test_urls[:2000]
+			# state_array = build_url_feature_matrix(count_vec, test_urls, revisit, found_rewards)
+			# v = sess.run(agent.v, feed_dict={agent.state: state_array}).reshape(-1).tolist()
+			# pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv("results/linear_dqn_results/visited_value.csv", index=False)
 
 		else:
 			##------------------ Run and train crawler agent -----------------------
