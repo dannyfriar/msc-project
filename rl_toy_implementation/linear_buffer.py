@@ -114,8 +114,8 @@ def epsilon_greedy(epsilon, action_list):
 ##-------- Buffer -------------------------------------------
 class Buffer(object):
 	def __init__(self):
-		self.min_buffer_size = 5
-		self.max_buffer_size = 5000
+		self.min_buffer_size = 1
+		self.max_buffer_size = 1000
 		self.alpha = 0.5
 		self.beta = 1
 		self.buffer = []
@@ -203,10 +203,10 @@ def main():
 	eps_decay = 2 / num_steps
 	epsilon = start_eps
 	gamma = 0.9
-	learning_rate = 0.001
-	priority = True
+	learning_rate = 0.001 / 5
+	priority = False
 	train_sample_size = 5
-	reload_model = False
+	reload_model = True
 
 	##-------------------- Read in data
 	links_df = pd.read_csv("new_data/links_dataframe.csv")
@@ -222,7 +222,7 @@ def main():
 	url_list = list(url_set)
 
 	# Read in list of keywords
-	words_list = pd.read_csv("data/segmented_words_df.csv")['word'].tolist()
+	words_list = pd.read_csv("data/new_segmented_words_df.csv")['word'].tolist()
 	word_dict = dict(zip(words_list, list(range(len(words_list)))))
 	count_vec = CountVectorizer(vocabulary=word_dict)
 	weights_shape = len(words_list)
@@ -350,8 +350,6 @@ def main():
 					# Decay epsilon
 					if epsilon > end_eps:
 						epsilon = epsilon - eps_decay
-
-					# input("Press enter to continue...")
 
 					# Choose next URL (and check for looping)
 					if is_terminal == 1:

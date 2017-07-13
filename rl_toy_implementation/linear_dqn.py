@@ -140,7 +140,7 @@ class CrawlerAgent(object):
 		self.opt = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.loss)
 
 	def save_tf_model(self, tf_session, tf_saver):
-		tf_saver.save(tf_session, "".join([self.tf_model_folder, "tf_model"]))
+		tf_saver.save(tf_session, "/".join([self.tf_model_folder, "tf_model"]))
 
 
 ##-----------------------------------------------------------
@@ -155,7 +155,6 @@ def main():
 	end_eps = 0
 	eps_decay = 1.5 / num_steps
 	epsilon = start_eps
-	# epsilon = 0.05
 	gamma = 0.9
 	learning_rate = 0.001
 	reload_model = True
@@ -176,7 +175,7 @@ def main():
 	url_list = list(url_set)
 
 	# Read in list of keywords
-	words_list = pd.read_csv("data/segmented_words_df.csv")['word'].tolist()
+	words_list = pd.read_csv("data/new_segmented_words_df.csv")['word'].tolist()
 	word_dict = dict(zip(words_list, list(range(len(words_list)))))
 	count_vec = CountVectorizer(vocabulary=word_dict)
 	weights_shape = len(words_list)
@@ -221,8 +220,8 @@ def main():
 			weights_df.to_csv(feature_coefs_save_file, index=False, header=True)
 
 			# Test URLs
-			test_urls = random.sample(url_set, 20000)
-			pd.DataFrame.from_dict({'url':test_urls}).to_csv("data/random_url_sample.csv", index=False)
+			# test_urls = random.sample(url_set, 20000)
+			# pd.DataFrame.from_dict({'url':test_urls}).to_csv("data/random_url_sample.csv", index=False)
 			test_urls = pd.read_csv("data/random_url_sample.csv")['url'].tolist()
 			state_array = build_url_feature_matrix(count_vec, test_urls, revisit, found_rewards)
 			v = sess.run(agent.v, feed_dict={agent.state: state_array}).reshape(-1).tolist()
@@ -314,6 +313,7 @@ def main():
 
 			print("\nCrawled {} pages, total reward = {}, # terminal states = {}"\
 				.format(pages_crawled, total_reward, terminal_states))
+			print("saving model")
 			agent.save_tf_model(sess, saver)
 
 	sess.close()

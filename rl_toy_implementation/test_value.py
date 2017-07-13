@@ -114,8 +114,8 @@ url_set = set(links_df['url'].tolist())
 url_list = list(url_set)
 
 # Read random sample of URLs
-# test_urls = pd.read_csv("data/random_url_sample.csv")['url'].tolist()  # random visited URLs
-test_urls = pd.read_csv("results/linear_dqn_results/visited_value.csv")['url'].tolist()  # random visited URLs
+test_urls = pd.read_csv("data/random_url_sample.csv")['url'].tolist()  # random URLs
+# test_urls = pd.read_csv("results/linear_dqn_results/visited_value.csv")['url'].tolist()
 
 gamma = 0.9
 results_dict = OrderedDict([('url', []), ('true_value', [])])
@@ -180,6 +180,6 @@ for idx, url in enumerate(test_urls):
 print("\nSaving Results...")
 print(len(results_dict['url']))
 print(len(results_dict['true_value']))
-# pd.DataFrame.from_dict(results_dict).to_csv("results/actual_value_revisit.csv", index=False)
-pd.DataFrame.from_dict(results_dict).to_csv("results/actual_value_visited.csv", index=False)
+pd.DataFrame.from_dict(results_dict).to_csv("results/actual_value_revisit.csv", index=False)
+# pd.DataFrame.from_dict(results_dict).to_csv("results/actual_value_visited.csv", index=False)
 print("Done.")
