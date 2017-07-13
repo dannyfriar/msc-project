@@ -38,12 +38,13 @@ def get_list_of_links(url, s=storage):
 		if page is None:
 			return [], []
 	except (UnicodeError, ValueError):
-		return []
+		return [], []
 	try:
+		link_list = [l.url.replace("http://", "").replace("https://", "") for l in page.links if l.url[:4] == "http"]
 		text_list = [l.text.lower() for l in page.links if l.url[:4] == "http"]
 	except UnicodeDecodeError:
-		return []
-	return text_list
+		return [], []
+	return text_list, link_list
 
 def get_title_text(url, s=storage):
 	"""Use the LMDB database to get a list of links for a given URL"""
@@ -128,19 +129,31 @@ all_title_text = []
 # word_counts = pd.DataFrame.from_dict(Counter(words), orient='index').reset_index()
 # word_counts.to_csv("../new_data/all_word_count.csv", header=True, index=False)
 
-word_counts = pd.read_csv("../new_data/all_word_count.csv", names=["word", "count"])
-full_length = sum(word_counts['count'])
-word_counts = word_counts[word_counts['count'] >= 5000]
-print(len(word_counts['word'].tolist()))
-print(sum(word_counts['count']) / full_length)
-word_counts.to_csv("../new_data/all_vocab.csv", header=True, index=False)
+# word_counts = pd.read_csv("../new_data/all_word_count.csv", names=["word", "count"])
+# full_length = sum(word_counts['count'])
+# word_counts = word_counts[word_counts['count'] >= 5000]
+# print(len(word_counts['word'].tolist()))
+# print(sum(word_counts['count']) / full_length)
+# word_counts.to_csv("../new_data/all_vocab.csv", header=True, index=False)
 
 
+# Number of links that have anchor text and number of pages that have titles
+all_text_list = []
+all_url_list = []
+total = 100000
 
-
-
-
-
+url_list = random.sample(url_list, total)
+for idx, url in enumerate(url_list):
+	progress_bar(idx+1, len(url_list))
+	# title_text = get_title_text(url)
+	# if title_text == '':
+		# no_title_text += 1
+	text_list, link_list = get_list_of_links(url)
+	text_list = [t for t in text_list if len(t) != 0 and type(t) != tuple]
+	all_text_list += text_list
+	all_url_list += link_list
+print("\n")
+print(len(all_text_list)/len(all_url_list))
 
 
 
