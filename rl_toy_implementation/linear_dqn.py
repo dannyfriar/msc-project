@@ -214,6 +214,7 @@ def main():
 			all_vars = tf.get_collection('vars')
 			if revisit == True:
 				weights_df = pd.DataFrame.from_dict({'words':words_list, 'coef': agent.weights.eval().reshape(-1).tolist()})
+				print(agent.bias.eval())
 			else:
 				weights_df = pd.DataFrame.from_dict({'words':words_list+['prev_reward'], 
 					'coef': agent.weights.eval().reshape(-1).tolist()})
