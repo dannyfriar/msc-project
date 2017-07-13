@@ -44,17 +44,18 @@ def get_list_of_links(url, s=storage):
 		if page is None:
 			page = s.get_page("www."+url+"/")
 		if page is None:
-			return [], []
+			return [], [], ''
 	except (UnicodeError, ValueError) as e:
-		return [], []
+		return [], [], ''
 	try:
 		link_list = [l.url.replace("http://", "").replace("https://", "") for l in page.links if l.url[:4] == "http"]
 		link_list = link_list + [l.replace("www.", "") for l in link_list]
 		text_list = [l.text.lower() for l in page.links if l.url[:4] == "http"]
 		text_list = text_list + text_list
+		page_title = page.title.lower()
 	except UnicodeDecodeError:
-		return [], []
-	return link_list, text_list
+		return [], [], ''
+	return link_list, text_list, page_title
 
 def lookup_domain_name(links_df, domain_url):
 	"""Returns list of all URLs within domain web site (in database)"""
@@ -157,7 +158,7 @@ def main():
 	epsilon = start_eps
 	gamma = 0.9
 	learning_rate = 0.001
-	reload_model = True
+	reload_model = False
 
 	##-------------------- Read in data
 	links_df = pd.read_csv("new_data/links_dataframe.csv")
@@ -177,7 +178,7 @@ def main():
 	word_dict = dict(zip(words_list, list(range(len(words_list)))))
 	count_vec = CountVectorizer(vocabulary=word_dict)
 
-	text_word_list = pd.read_csv("new_data/link_text_vocab.csv")['word'].tolist()
+	text_word_list = pd.read_csv("new_data/all_vocab.csv")['word'].tolist()
 	text_word_dict = dict(zip(text_word_list, list(range(len(words_list)))))
 	text_count_vec = CountVectorizer(vocabulary=text_word_dict)
 	weights_shape = len(words_list) + len(text_word_list)
@@ -229,8 +230,8 @@ def main():
 		else:
 			##------------------ Run and train crawler agent -----------------------
 			print("Training DQN agent...")
-			if os.path.isfile(all_urls_file):
-				os.remove(all_urls_file)
+			# if os.path.isfile(all_urls_file):
+			# 	os.remove(all_urls_file)
 
 			while step_count < num_steps:
 				url = get_random_url(url_list, recent_urls)
@@ -258,8 +259,8 @@ def main():
 							A_company.make_automaton()
 					
 					# Feature representation of current page (state) and links in page
-					state = build_url_feature_matrix(count_vec, text_count_vec, [url], [""], revisit, found_rewards)
-					link_list, text_list = get_list_of_links(url)
+					link_list, text_list, page_title = get_list_of_links(url)
+					state = build_url_feature_matrix(count_vec, text_count_vec, [url], [page_title], revisit, found_rewards)
 					if len(link_list) > 0:
 						url_df = pd.DataFrame.from_dict({"url":link_list, "text": text_list})
 						url_df = url_df.sort_values(by="url").reset_index()
@@ -294,9 +295,9 @@ def main():
 						print("\nCrawled {} pages, total reward = {}, # terminal states = {}, remaining rewards = {}"\
 						.format(pages_crawled, total_reward, terminal_states, len(reward_urls)))
 
-					with open(all_urls_file, "a") as csv_file:
-						writer = csv.writer(csv_file, delimiter=',')
-						writer.writerow([url, r, is_terminal, float(loss)])
+					# with open(all_urls_file, "a") as csv_file:
+					# 	writer = csv.writer(csv_file, delimiter=',')
+					# 	writer.writerow([url, r, is_terminal, float(loss)])
 
 					# Decay epsilon
 					if epsilon > end_eps:
@@ -313,7 +314,7 @@ def main():
 
 			print("\nCrawled {} pages, total reward = {}, # terminal states = {}"\
 				.format(pages_crawled, total_reward, terminal_states))
-			agent.save_tf_model(sess, saver)
+			# agent.save_tf_model(sess, saver)
 
 	sess.close()
 

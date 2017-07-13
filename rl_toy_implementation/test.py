@@ -46,9 +46,10 @@ for i in range(10):
 	url = random.choice(url_list)
 	print(url)
 	page = storage.get_page(url)
-	print(page)
+	if page is not None:
+		print("Title: {}".format(page.title))
 	print(np.sum(build_url_feature_matrix(count_vec, [url])))
-	stop
+	input("Press enter")
 
 
 
