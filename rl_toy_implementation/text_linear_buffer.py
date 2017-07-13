@@ -202,11 +202,11 @@ def main():
 	term_steps = 50
 	num_steps = 100000  # no. crawled pages before stopping
 	print_freq = 1000
-	start_eps = 0.2
+	start_eps = 0.1
 	end_eps = 0.05
 	eps_decay = 1.5 / num_steps
 	epsilon = start_eps
-	gamma = 0.9
+	gamma = 0.75
 	learning_rate = 0.001
 	priority = True
 	train_sample_size = 1
@@ -230,7 +230,7 @@ def main():
 	word_dict = dict(zip(words_list, list(range(len(words_list)))))
 	count_vec = CountVectorizer(vocabulary=word_dict)
 
-	text_word_list = pd.read_csv("new_data/link_text_vocab.csv")['word'].tolist()
+	text_word_list = pd.read_csv("new_data/all_vocab.csv")['word'].tolist()
 	text_word_dict = dict(zip(text_word_list, list(range(len(words_list)))))
 	text_count_vec = CountVectorizer(vocabulary=text_word_dict)
 	weights_shape = len(words_list) + len(text_word_list)
