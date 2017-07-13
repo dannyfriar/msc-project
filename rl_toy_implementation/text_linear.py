@@ -57,6 +57,26 @@ def get_list_of_links(url, s=storage):
 		return [], [], ''
 	return link_list, text_list, page_title
 
+def get_title_text(url, s=storage):
+	"""Use the LMDB database to get a list of links for a given URL"""
+	try:
+		page = s.get_page(url)
+		if page is None:
+			page = s.get_page(url+"/")
+		if page is None:
+			page = s.get_page("www."+url)
+		if page is None:
+			page = s.get_page("www."+url+"/")
+		if page is None:
+			return ''
+	except (UnicodeError, ValueError):
+		return ''
+	try:
+		title_text = page.title.lower()
+	except UnicodeDecodeError:
+		return ''
+	return title_text
+
 def lookup_domain_name(links_df, domain_url):
 	"""Returns list of all URLs within domain web site (in database)"""
 	return links_df[links_df['domain'].values == domain_url]['url'].tolist()
@@ -158,7 +178,7 @@ def main():
 	epsilon = start_eps
 	gamma = 0.9
 	learning_rate = 0.001
-	reload_model = False
+	reload_model = True
 
 	##-------------------- Read in data
 	links_df = pd.read_csv("new_data/links_dataframe.csv")
@@ -221,11 +241,12 @@ def main():
 				 'type':['url']*len(words_list)+['text']*len(text_word_list)})
 			weights_df.to_csv(feature_coefs_save_file, index=False, header=True)
 
-			# # Test URLs
-			# test_urls = pd.read_csv("data/random_url_sample.csv")['url'].tolist()
-			# state_array = build_url_feature_matrix(count_vec, text_count_vec, test_urls, text_word_list, revisit, [])
-			# v = sess.run(agent.v, feed_dict={agent.state: state_array}).reshape(-1).tolist()
-			# pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv(test_value_files, index=False)
+			# Test URLs
+			test_urls = pd.read_csv("data/random_url_sample.csv")['url'].tolist()
+			page_titles = [get_title_text(l) for l in test_urls]
+			state_array = build_url_feature_matrix(count_vec, text_count_vec, test_urls, page_titles, revisit, [])
+			v = sess.run(agent.v, feed_dict={agent.state: state_array}).reshape(-1).tolist()
+			pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv(test_value_files, index=False)
 
 		else:
 			##------------------ Run and train crawler agent -----------------------
