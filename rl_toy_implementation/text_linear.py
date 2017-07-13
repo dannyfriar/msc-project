@@ -172,13 +172,13 @@ def main():
 	term_steps = 50
 	num_steps = 100000  # no. crawled pages before stopping
 	print_freq = 1000
-	start_eps = 0.2
+	start_eps = 0.1
 	end_eps = 0
 	eps_decay = 1.5 / num_steps
 	epsilon = start_eps
-	gamma = 0.9
+	gamma = 0.75
 	learning_rate = 0.001
-	reload_model = True
+	reload_model = False
 
 	##-------------------- Read in data
 	links_df = pd.read_csv("new_data/links_dataframe.csv")
