@@ -203,10 +203,10 @@ def main():
 	eps_decay = 2 / num_steps
 	epsilon = start_eps
 	gamma = 0.9
-	learning_rate = 0.001 / 5
-	priority = False
+	learning_rate = 0.001
+	priority = True
 	train_sample_size = 5
-	reload_model = True
+	reload_model = False
 
 	##-------------------- Read in data
 	links_df = pd.read_csv("new_data/links_dataframe.csv")

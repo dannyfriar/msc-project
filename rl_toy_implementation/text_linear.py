@@ -148,7 +148,7 @@ class CrawlerAgent(object):
 def main():
 	##-------------------- Parameters
 	cycle_freq = 50
-	term_steps = 20
+	term_steps = 50
 	num_steps = 100000  # no. crawled pages before stopping
 	print_freq = 1000
 	start_eps = 0.2
@@ -173,7 +173,7 @@ def main():
 	url_list = list(url_set)
 
 	# Read in list of keywords
-	words_list = pd.read_csv("data/segmented_words_df.csv")['word'].tolist()
+	words_list = pd.read_csv("data/new_segmented_words_df.csv")['word'].tolist()
 	word_dict = dict(zip(words_list, list(range(len(words_list)))))
 	count_vec = CountVectorizer(vocabulary=word_dict)
 
@@ -220,9 +220,9 @@ def main():
 				 'type':['url']*len(words_list)+['text']*len(text_word_list)})
 			weights_df.to_csv(feature_coefs_save_file, index=False, header=True)
 
-			# Test URLs
+			# # Test URLs
 			# test_urls = pd.read_csv("data/random_url_sample.csv")['url'].tolist()
-			# state_array = build_url_feature_matrix(count_vec, text_count_vec, test_urls, revisit, found_rewards)
+			# state_array = build_url_feature_matrix(count_vec, text_count_vec, test_urls, text_word_list, revisit, [])
 			# v = sess.run(agent.v, feed_dict={agent.state: state_array}).reshape(-1).tolist()
 			# pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv(test_value_files, index=False)
 
