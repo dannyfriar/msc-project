@@ -266,7 +266,7 @@ def main():
 							A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
 							A_company.make_automaton()
 					else:
-						r = -0.05
+						r = -0.02
 					
 					# Feature representation of current page (state) and links in page
 					state = build_url_feature_matrix(count_vec, [url], revisit, found_rewards)
