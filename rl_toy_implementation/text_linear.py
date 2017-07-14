@@ -199,7 +199,7 @@ def main():
 	count_vec = CountVectorizer(vocabulary=word_dict)
 
 	text_word_list = pd.read_csv("new_data/all_vocab.csv")['word'].tolist()
-	text_word_dict = dict(zip(text_word_list, list(range(len(words_list)))))
+	text_word_dict = dict(zip(text_word_list, list(range(len(text_words_list)))))
 	text_count_vec = CountVectorizer(vocabulary=text_word_dict)
 	weights_shape = len(words_list) + len(text_word_list)
 
