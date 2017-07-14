@@ -69,11 +69,12 @@ word_counts.columns = ['word','count']
 word_counts = word_counts[word_counts['count']>1]
 word_counts = word_counts[~word_counts['word'].isin(stops)]
 word_counts = word_counts.sort_values(by="count", ascending=False).reset_index()
-word_counts = word_counts[word_counts['count'] >= 50]  # Leaving 4.5k words
+word_counts = word_counts[word_counts['count'] >= 20]  # Leaving 4.5k words
 print(len(word_counts))
 print(sum(word_counts['count']) / len(word_list))
 # word_counts.to_csv("../data/segmented_words_df.csv", header=True, index=False)
-word_counts.to_csv("../data/new_segmented_words_df.csv", header=True, index=False)
+# word_counts.to_csv("../data/new_segmented_words_df.csv", header=True, index=False)
+word_counts.to_csv("../data/embedding_segmented_words_df.csv", header=True, index=False)
 
 
 ##-------------- Split on punctuation

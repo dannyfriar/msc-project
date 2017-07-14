@@ -116,10 +116,55 @@ def epsilon_greedy(epsilon, action_list):
 		return random.randint(0, len(action_list)-1)
 
 ##-----------------------------------------------------------
+##-------- Buffer -------------------------------------------
+class Buffer(object):
+	def __init__(self, min_buffer_size, max_buffer_size):
+		self.min_buffer_size = min_buffer_size
+		self.max_buffer_size = max_buffer_size
+		self.alpha = 0.5
+		self.beta = 1
+		self.buffer = []
+
+	def update(self, s, r, s_prime, is_terminal):
+		self.buffer.append((s, s_prime, r, is_terminal, 0))
+		if len(self.buffer) > self.max_buffer_size:
+			self.buffer = self.buffer[1:]
+
+	def add_loss(self, idx, loss):
+		"""Add neural net loss to buffer element"""
+		b = self.buffer[idx]
+		self.buffer[idx] = (b[0], b[1], b[2], b[3], loss)
+		self.buffer = sorted(self.buffer, key=lambda x: int(x[4]), reverse=True)
+
+	def sample(self, state, next_state, reward, is_terminal, sample_weight, priority):
+		if len(self.buffer) >= self.min_buffer_size:
+			if priority == True:
+				probs = [i for i in range(1, len(self.buffer)+1)]
+				probs = [p**self.alpha for p in probs]
+				probs = [p/sum(probs) for p in probs]
+				idx = np.abs(np.array(probs) - random.uniform(0, 1)).argmin()
+				max_weight = (1/min(probs))**self.beta
+				weight = (1/probs[idx])**self.beta / max_weight
+			else:
+				idx = random.randint(0, len(self.buffer)-1)
+				weight = 1
+
+			buffer_tuple = self.buffer[idx]
+			train_dict = {
+					state: buffer_tuple[0], next_state: buffer_tuple[1],
+					reward: buffer_tuple[2], is_terminal: buffer_tuple[3],
+					sample_weight: weight
+			}
+			return True, idx, train_dict
+		return False, -1, None
+
+
+##-----------------------------------------------------------
 ##-------- DQN Agent ----------------------------------------
 class CrawlerAgent(object):
 	def __init__(self, weights_shape, filter_sizes, num_filters, embeddings, embedding_size, max_len,
-	 tf_model_folder, gamma=0.99, learning_rate=0.01):
+	 tf_model_folder, priority, min_buffer_size, max_buffer_size,
+	 gamma=0.99, learning_rate=0.01):
 		# Embedding parameters
 		self.filter_sizes = filter_sizes
 		self.num_filters = num_filters
@@ -136,7 +181,10 @@ class CrawlerAgent(object):
 		self.next_state = tf.placeholder(dtype=tf.int32, shape=[None, self.max_len])
 		self.reward = tf.placeholder(dtype=tf.float32)
 		self.is_terminal = tf.placeholder(dtype=tf.float32)
+		self.sample_weight = tf.placeholder(dtype=tf.float32)
 		self.embeddings_net()
+		self.buffer = Buffer(min_buffer_size, max_buffer_size)
+		self.priority = priority
 
 		# Train/test results dicts + model saving
 		self.train_results_dict = OrderedDict([('pages_crawled', []), ('total_reward', []), ('terminal_states', []), ('nn_loss', [])])
@@ -193,6 +241,9 @@ class CrawlerAgent(object):
 		self.loss = tf.square(target - self.v) / 2
 		self.opt = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.loss)
 
+	def sample_buffer(self):
+		return self.buffer.sample(self.state, self.next_state, self.reward, 
+			self.is_terminal, sample_weight = self.sample_weight, priority=self.priority)
 
 	def save_tf_model(self, tf_session, tf_saver):
 		tf_saver.save(tf_session, "/".join([self.tf_model_folder, "tf_model"]))
@@ -211,7 +262,11 @@ def main():
 	eps_decay = 2 / num_steps
 	epsilon = start_eps
 	gamma = 0.75
-	learning_rate = 0.01
+	learning_rate = 0.001
+	priority = False
+	train_sample_size = 100
+	min_buffer_size = 2 * train_sample_size
+	max_buffer_size = 2500
 	reload_model = False
 
 	max_len = 50
@@ -253,7 +308,7 @@ def main():
 
 	tf.reset_default_graph()
 	agent = CrawlerAgent(weights_shape, filter_sizes, num_filters, embeddings, embedding_size, max_len,
-		model_save_file, gamma=gamma, learning_rate=learning_rate)
+		model_save_file, priority, min_buffer_size, max_buffer_size, gamma, learning_rate)
 	init = tf.global_variables_initializer()
 	saver = tf.train.Saver()
 
@@ -299,13 +354,21 @@ def main():
 					steps_without_terminating += 1
 					next_state_array = build_url_feature_matrix(count_vec, link_list, embeddings, max_len)
 
-				# Train DQN
-				train_dict = {
-						agent.state: state, agent.next_state: next_state_array, 
-						agent.reward: r, agent.is_terminal: is_terminal
-				}
-				opt, loss, v_next  = sess.run([agent.opt, agent.loss, agent.v_next], feed_dict=train_dict)
-				v_next = v_next.reshape(-1)
+				# Update buffer
+				agent.buffer.update(state, r, next_state_array, is_terminal)
+				train, idx, train_dict = agent.sample_buffer()
+
+				# # Train DQN
+				# train_dict = {
+				# 		agent.state: state, agent.next_state: next_state_array, 
+				# 		agent.reward: r, agent.is_terminal: is_terminal
+				# }
+				if train == True:
+					opt, loss, v_next  = sess.run([agent.opt, agent.loss, agent.v_next], feed_dict=train_dict)
+					for _ in range(train_sample_size-1):
+						_, idx, train_dict = agent.sample_buffer()
+						opt, loss, _  = sess.run([agent.opt, agent.loss, agent.v_next], feed_dict=train_dict)
+				v_next = sess.run(agent.v_next, feed_dict={agent.next_state: next_state_array}).reshape(-1)
 
 				# input("Press enter to continue...")
 
@@ -317,7 +380,7 @@ def main():
 
 				with open(all_urls_file, "a") as csv_file:
 					writer = csv.writer(csv_file, delimiter=',')
-					writer.writerow([url, r, is_terminal, float(loss)])
+					writer.writerow([url, r, is_terminal])
 
 				# Decay epsilon
 				if epsilon > end_eps:
