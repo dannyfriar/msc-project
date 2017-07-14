@@ -120,6 +120,7 @@ def epsilon_greedy(epsilon, action_list):
 class Buffer(object):
 	def __init__(self, min_buffer_size, max_buffer_size):
 		self.min_buffer_size = min_buffer_size
+		self.batch_size = int(min_buffer_size/2)
 		self.max_buffer_size = max_buffer_size
 		self.alpha = 0.5
 		self.beta = 1
@@ -146,17 +147,24 @@ class Buffer(object):
 				max_weight = (1/min(probs))**self.beta
 				weight = (1/probs[idx])**self.beta / max_weight
 			else:
-				idx = random.randint(0, len(self.buffer)-1)
+				indices = random.sample(range(0, len(self.buffer)-1), self.batch_size)
 				weight = 1
 
-			buffer_tuple = self.buffer[idx]
+			buffer_sample = [self.buffer[i] for i in indices]
+			s_sample = np.concatenate([b[0] for b in buffer_sample], axis=0)
+			s_prime_sample = [b[1] for b in buffer_sample]
+			s_prime_lengths = [s.shape[0] for s in s_prime_sample]
+			s_prime_sample = np.concatenate(s_prime_sample, axis=0)
+			r_sample = np.concatenate([np.array([b[2]]).reshape(-1, 1) for b in buffer_sample], axis=0)
+			t_sample = np.concatenate([np.array([1-b[3]]).reshape(-1, 1) for b in buffer_sample], axis=0)
+
 			train_dict = {
-					state: buffer_tuple[0], next_state: buffer_tuple[1],
-					reward: buffer_tuple[2], is_terminal: buffer_tuple[3],
+					state: s_sample, next_state: s_prime_sample,
+					reward: r_sample, is_terminal: t_sample,
 					sample_weight: weight
 			}
-			return True, idx, train_dict
-		return False, -1, None
+			return True, -1, train_dict, s_prime_lengths
+		return False, -1, None, []
 
 
 ##-----------------------------------------------------------
@@ -179,9 +187,10 @@ class CrawlerAgent(object):
 		self.weights_shape = weights_shape
 		self.state = tf.placeholder(dtype=tf.int32, shape=[None, self.max_len])
 		self.next_state = tf.placeholder(dtype=tf.int32, shape=[None, self.max_len])
-		self.reward = tf.placeholder(dtype=tf.float32)
-		self.is_terminal = tf.placeholder(dtype=tf.float32)
+		self.reward = tf.placeholder(dtype=tf.float32, shape=[None, 1])
+		self.is_terminal = tf.placeholder(dtype=tf.float32, shape=[None, 1])
 		self.sample_weight = tf.placeholder(dtype=tf.float32)
+		self.v_next_splits = [1]
 		self.embeddings_net()
 		self.buffer = Buffer(min_buffer_size, max_buffer_size)
 		self.priority = priority
@@ -235,15 +244,21 @@ class CrawlerAgent(object):
 		h_pool_flat_next = tf.reshape(h_pool_next, [-1, self.num_filters_total])
 		self.v_next = tf.nn.sigmoid(tf.matmul(h_pool_flat_next, W_out) + b_out)
 
+		v_next_list = tf.split(self.v_next, self.v_next_splits, 0)
+		v_next_list = [tf.reduce_max(v, axis=0) for v in v_next_list]
+		max_v_next = tf.reshape(tf.concat(v_next_list, axis=0), [-1, 1])
+
 		# Compute target and incur loss
-		max_v_next = tf.reshape(tf.stop_gradient(tf.reduce_max(self.v_next)), [-1, 1])
+		# max_v_next = tf.reshape(tf.stop_gradient(tf.reduce_max(self.v_next)), [-1, 1])
 		target = self.reward + (1-self.is_terminal) * self.gamma * max_v_next
 		self.loss = tf.square(target - self.v) / 2
 		self.opt = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.loss)
 
 	def sample_buffer(self):
-		return self.buffer.sample(self.state, self.next_state, self.reward, 
-			self.is_terminal, sample_weight = self.sample_weight, priority=self.priority)
+		train, idx, train_dict, self.v_next_splits = self.buffer.sample(self.state, 
+			self.next_state, self.reward, self.is_terminal, sample_weight=self.sample_weight, 
+			priority=self.priority)
+		return train, idx, train_dict
 
 	def save_tf_model(self, tf_session, tf_saver):
 		tf_saver.save(tf_session, "/".join([self.tf_model_folder, "tf_model"]))
@@ -363,14 +378,16 @@ def main():
 				# 		agent.state: state, agent.next_state: next_state_array, 
 				# 		agent.reward: r, agent.is_terminal: is_terminal
 				# }
+				t0 = time.time()
 				if train == True:
 					opt, loss, v_next  = sess.run([agent.opt, agent.loss, agent.v_next], feed_dict=train_dict)
-					for _ in range(train_sample_size-1):
-						_, idx, train_dict = agent.sample_buffer()
-						opt, loss, _  = sess.run([agent.opt, agent.loss, agent.v_next], feed_dict=train_dict)
+				print("Time to train = {}".format(time.time()-t0))
+				t0 = time.time()
 				v_next = sess.run(agent.v_next, feed_dict={agent.next_state: next_state_array}).reshape(-1)
+				print("Time to get v_next = {}".format(time.time()-t0))
 
-				# input("Press enter to continue...")
+				if pages_crawled >= 200:
+					input("Press enter to continue...")
 
 				# Print progress + save transitions
 				progress_bar(step_count+1, num_steps)
