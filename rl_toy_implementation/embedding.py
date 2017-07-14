@@ -50,33 +50,15 @@ links_df['domain'] = links_df.domain.str.replace("www.", "")
 links_df = links_df[~links_df['domain'].isin(rm_list)]
 url_list = links_df['url'].tolist()
 
-# #------ Load Word2Vec and create embeddings matrix from vocabulary
-# print("Loading word2vec...")
-# model = gensim.models.Word2Vec.load_word2vec_format('../../GoogleNews-vectors-negative300.bin', binary=True)
-# print(model['queen'])
-# embeddings = np.zeros((len(text_word_list), len(model['queen'])))
-
-# errors = 0
-# for k, v in text_word_dict.items():
-# 	try:
-# 		embeddings[v] = model[k]
-# 	except KeyError:
-# 		errors += 1
-# 		pass
-
-# print("Number of errors = {}".format(errors))
-# print("Saving embeddings matrix...")
-# np.savetxt('../../embeddings_matrix.csv', embeddings, delimiter=',')
-
-#------ Create URL embeddings matrix
+#------ Load Word2Vec and create embeddings matrix from vocabulary
 print("Loading word2vec...")
 model = gensim.models.Word2Vec.load_word2vec_format('../../GoogleNews-vectors-negative300.bin', binary=True)
 print(model['queen'])
-embeddings = np.zeros((len(words_list), len(model['queen'])))
+embeddings = np.zeros((len(text_word_list), len(model['queen'])))
 
 errors = 0
 error_keys = []
-for k, v in word_dict.items():
+for k, v in text_word_dict.items():
 	try:
 		embeddings[v] = model[k]
 	except KeyError:
@@ -84,11 +66,33 @@ for k, v in word_dict.items():
 		error_keys.append(k)
 		pass
 
-url_word_list = [w for w in words_list if w not in error_keys]
-pd.DataFrame.from_dict({'word':url_word_list}).to_csv("../../embedded_url_word_list.csv")
+anchor_word_list = [w for w in text_word_list if w not in error_keys]
+pd.DataFrame.from_dict({'word':anchor_word_list}).to_csv("../../embedded_anchor_list.csv")
 print("Number of errors = {}".format(errors))
-print("Saving URL embeddings matrix...")
-np.savetxt('../../url_embeddings_matrix.csv', embeddings, delimiter=',')
+print("Saving embeddings matrix...")
+np.savetxt('../../anchor_embeddings_matrix.csv', embeddings, delimiter=',')
+
+# #------ Create URL embeddings matrix
+# print("Loading word2vec...")
+# model = gensim.models.Word2Vec.load_word2vec_format('../../GoogleNews-vectors-negative300.bin', binary=True)
+# print(model['queen'])
+# embeddings = np.zeros((len(words_list), len(model['queen'])))
+
+# errors = 0
+# error_keys = []
+# for k, v in word_dict.items():
+# 	try:
+# 		embeddings[v] = model[k]
+# 	except KeyError:
+# 		errors += 1
+# 		error_keys.append(k)
+# 		pass
+
+# url_word_list = [w for w in words_list if w not in error_keys]
+# pd.DataFrame.from_dict({'word':url_word_list}).to_csv("../../embedded_url_word_list.csv")
+# print("Number of errors = {}".format(errors))
+# print("Saving URL embeddings matrix...")
+# np.savetxt('../../url_embeddings_matrix.csv', embeddings, delimiter=',')
 
 
 # # Test a random URL
