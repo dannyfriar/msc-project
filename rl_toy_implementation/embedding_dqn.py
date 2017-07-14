@@ -230,7 +230,7 @@ def main():
 	print_freq = 1000
 	start_eps = 0.1
 	end_eps = 0
-	eps_decay = 1.5 / num_steps
+	eps_decay = 2.5 / num_steps
 	epsilon = start_eps
 	gamma = 0.75
 	learning_rate = 0.001
