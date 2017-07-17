@@ -147,6 +147,7 @@ class CrawlerAgent(object):
 	def target_net(self):
 		embedded_next_state = tf.nn.embedding_lookup(self.embeddings, self.next_state)
 		embedded_next_state = tf.expand_dims(embedded_next_state, -1)
+		embedded_next_state = tf.nn.l2_normalize(embedded_next_state, 1)
 
 		W_out_target = tf.get_variable("W_out_target", [self.num_filters_total, 1],
 			initializer=tf.random_normal_initializer(mean=0.0, stddev=0.001))
@@ -174,6 +175,7 @@ class CrawlerAgent(object):
 	def embeddings_net(self):
 		embedded_state = tf.nn.embedding_lookup(self.embeddings, self.state)
 		embedded_state = tf.expand_dims(embedded_state, -1)
+		embedded_state = tf.nn.l2_normalize(embedded_state, 1)
 
 		W_out = tf.get_variable("W_out", [self.num_filters_total, 1], 
 			initializer=tf.random_normal_initializer(mean=0.0, stddev=0.001))
@@ -224,7 +226,7 @@ class CrawlerAgent(object):
 def main():
 	##-------------------- Parameters
 	cycle_freq = 50
-	term_steps = 40
+	term_steps = 30
 	copy_steps = 100
 	num_steps = 100000  # no. crawled pages before stopping
 	print_freq = 1000
@@ -236,7 +238,7 @@ def main():
 	learning_rate = 0.001
 	reload_model = True
 
-	max_len = 75
+	max_len = 50
 	embedding_size = 300
 	filter_sizes = [1, 2, 3]
 	num_filters = 3
@@ -285,10 +287,13 @@ def main():
 
 		if reload_model == True:
 			print("Reloading model...")
+			random.seed(123)
 			saver = tf.train.import_meta_graph(model_save_file+"/tf_model.meta")
 			saver.restore(sess, tf.train.latest_checkpoint(model_save_file))
 			all_vars = tf.get_collection('vars')
-			test_urls = pd.read_csv("data/random_url_sample.csv")['url'].tolist()
+			test_urls = random.sample(url_set, 20000)
+			pd.DataFrame.from_dict({'url':test_urls}).to_csv("data/random_url_sample.csv", index=False)
+			# test_urls = pd.read_csv("data/random_url_sample.csv")['url'].tolist()
 			state = build_url_feature_matrix(count_vec, test_urls, embeddings, max_len)
 			v = sess.run(agent.v, feed_dict={agent.state: state}).reshape(-1).tolist()
 			pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv(test_value_files, index=False)
@@ -317,8 +322,6 @@ def main():
 					total_reward += r
 					if r > 0:
 						reward_pages.append(url)
-					else:
-						r = -0.05
 					
 					# Feature representation of current page (state) and links in page
 					state = build_url_feature_matrix(count_vec, [url], embeddings, max_len)
