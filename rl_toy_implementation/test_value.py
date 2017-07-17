@@ -115,7 +115,7 @@ url_list = list(url_set)
 
 # Read random sample of URLs
 # test_urls = pd.read_csv("data/random_url_sample.csv")['url'].tolist()  # random URLs
-test_urls = pd.read_csv("results/linear_dqn_results/visited_value.csv")['url'].tolist()
+test_urls = pd.read_csv("results/embedding_results/visited_value.csv")['url'].tolist()
 
 gamma = 0.9
 results_dict = OrderedDict([('url', []), ('true_value', [])])
