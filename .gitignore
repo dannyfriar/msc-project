@@ -5,3 +5,4 @@ rl_toy_implementation/data/backlinks_clean.csv
 rl_toy_implementation/models
 rl_toy_implementation/new_data/links_dataframe.csv
 rl_toy_implementation/new_data/link_text.csv
+figures/*
