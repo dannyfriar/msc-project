@@ -88,8 +88,9 @@ def build_url_feature_matrix(count_vec, url_list, embeddings, max_len):
 	feature_matrix = count_vec.transform(url_list).toarray()
 	if len(url_list) == 1:
 		s = np.nonzero(feature_matrix)[1]
-		s = np.pad(s, (0, max_len-len(s)), 'constant', constant_values=(0,0)).reshape(1, -1)
-		return s
+		s = pad_shorten(s, max_len)
+		# s = np.pad(s, (0, max_len-len(s)), 'constant', constant_values=(0,0))
+		return s.reshape(1, -1)
 	else:
 		s_prime = np.nonzero(feature_matrix)
 		splits = np.cumsum(np.bincount(s_prime[0]))
@@ -245,7 +246,7 @@ def main():
 	epsilon = start_eps
 	gamma = 0.75
 	learning_rate = 0.001
-	reload_model = False
+	reload_model = True
 
 	max_len = 50
 	embedding_size = 300
@@ -338,8 +339,6 @@ def main():
 					total_reward += r
 					if r > 0:
 						reward_pages.append(url)
-					else:
-						r = -0.05
 					
 					# Feature representation of current page (state) and links in page
 					state = build_url_feature_matrix(count_vec, [url], embeddings, max_len)
