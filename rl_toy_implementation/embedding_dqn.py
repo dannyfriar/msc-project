@@ -177,7 +177,8 @@ class CrawlerAgent(object):
 		# Fully connected for s'
 		h_pool_next = tf.concat(pooled_outputs_next, 3)
 		h_pool_flat_next = tf.reshape(h_pool_next, [-1, self.num_filters_total])
-		self.v_next = tf.nn.sigmoid(tf.matmul(h_pool_flat_next, W_out_target) + b_out_target)
+		# self.v_next = tf.nn.sigmoid(tf.matmul(h_pool_flat_next, W_out_target) + b_out_target)
+		self.v_next = tf.matmul(h_pool_flat_next, W_out_target) + b_out_target
 
 	def embeddings_net(self):
 		embedded_state = tf.nn.embedding_lookup(self.embeddings, self.state)
@@ -205,7 +206,8 @@ class CrawlerAgent(object):
 		# Fully connected for s
 		h_pool = tf.concat(pooled_outputs, 3)
 		h_pool_flat = tf.reshape(h_pool, [-1, self.num_filters_total])
-		self.v = tf.nn.sigmoid(tf.matmul(h_pool_flat, W_out) + b_out)
+		# self.v = tf.nn.sigmoid(tf.matmul(h_pool_flat, W_out) + b_out)
+		self.v = tf.matmul(h_pool_flat, W_out) + b_out
 
 		# Compute target and incur loss
 		max_v_next = tf.reshape(tf.stop_gradient(tf.reduce_max(self.v_next)), [-1, 1])
@@ -235,7 +237,7 @@ def main():
 	cycle_freq = 50
 	term_steps = 30
 	copy_steps = 100
-	num_steps = 200000  # no. crawled pages before stopping
+	num_steps = 100000  # no. crawled pages before stopping
 	print_freq = 1000
 	start_eps = 0.1
 	end_eps = 0
@@ -243,7 +245,7 @@ def main():
 	epsilon = start_eps
 	gamma = 0.75
 	learning_rate = 0.001
-	reload_model = True
+	reload_model = False
 
 	max_len = 50
 	embedding_size = 300
@@ -336,6 +338,8 @@ def main():
 					total_reward += r
 					if r > 0:
 						reward_pages.append(url)
+					else:
+						r = -0.05
 					
 					# Feature representation of current page (state) and links in page
 					state = build_url_feature_matrix(count_vec, [url], embeddings, max_len)
