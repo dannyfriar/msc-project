@@ -178,8 +178,7 @@ class CrawlerAgent(object):
 		# Fully connected for s'
 		h_pool_next = tf.concat(pooled_outputs_next, 3)
 		h_pool_flat_next = tf.reshape(h_pool_next, [-1, self.num_filters_total])
-		# self.v_next = tf.nn.sigmoid(tf.matmul(h_pool_flat_next, W_out_target) + b_out_target)
-		self.v_next = tf.matmul(h_pool_flat_next, W_out_target) + b_out_target
+		self.v_next = tf.nn.sigmoid(tf.matmul(h_pool_flat_next, W_out_target) + b_out_target)
 
 	def embeddings_net(self):
 		embedded_state = tf.nn.embedding_lookup(self.embeddings, self.state)
@@ -207,8 +206,7 @@ class CrawlerAgent(object):
 		# Fully connected for s
 		h_pool = tf.concat(pooled_outputs, 3)
 		h_pool_flat = tf.reshape(h_pool, [-1, self.num_filters_total])
-		# self.v = tf.nn.sigmoid(tf.matmul(h_pool_flat, W_out) + b_out)
-		self.v = tf.matmul(h_pool_flat, W_out) + b_out
+		self.v = tf.nn.sigmoid(tf.matmul(h_pool_flat, W_out) + b_out)
 
 		# Compute target and incur loss
 		max_v_next = tf.reshape(tf.stop_gradient(tf.reduce_max(self.v_next)), [-1, 1])
@@ -236,7 +234,7 @@ class CrawlerAgent(object):
 def main():
 	##-------------------- Parameters
 	cycle_freq = 50
-	term_steps = 30
+	term_steps = 20
 	copy_steps = 100
 	num_steps = 100000  # no. crawled pages before stopping
 	print_freq = 1000
