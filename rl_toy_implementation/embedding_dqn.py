@@ -76,6 +76,13 @@ def check_strings(A, search_list, string_to_search):
 	output_list[index_list] = 1
 	return output_list.tolist()
 
+def pad_shorten(s, max_len):
+	try:
+		s_out = np.pad(s, (0, max_len-len(s)), 'constant', constant_values=(0,0))
+	except ValueError as e:
+		s_out = s[:max_len]
+	return s_out
+
 def build_url_feature_matrix(count_vec, url_list, embeddings, max_len):
 	"""Return 2d numpy array of booleans"""
 	feature_matrix = count_vec.transform(url_list).toarray()
@@ -87,7 +94,7 @@ def build_url_feature_matrix(count_vec, url_list, embeddings, max_len):
 		s_prime = np.nonzero(feature_matrix)
 		splits = np.cumsum(np.bincount(s_prime[0]))
 		s_prime = np.split(s_prime[1], splits.tolist())[:-1]
-		s_prime = [np.pad(s, (0, max_len-len(s)), 'constant', constant_values=(0,0)) for s in s_prime]
+		s_prime = [pad_shorten(s, max_len) for s in s_prime]
 		s_prime = np.stack(s_prime, axis=0)
 		return s_prime
 
@@ -228,15 +235,15 @@ def main():
 	cycle_freq = 50
 	term_steps = 30
 	copy_steps = 100
-	num_steps = 100000  # no. crawled pages before stopping
+	num_steps = 200000  # no. crawled pages before stopping
 	print_freq = 1000
 	start_eps = 0.1
 	end_eps = 0
 	eps_decay = 2.5 / num_steps
 	epsilon = start_eps
 	gamma = 0.75
-	learning_rate = 0.005
-	reload_model = True
+	learning_rate = 0.001
+	reload_model = False
 
 	max_len = 50
 	embedding_size = 300
