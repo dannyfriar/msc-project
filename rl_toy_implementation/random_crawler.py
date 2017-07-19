@@ -111,7 +111,7 @@ def main():
 	
 	##-------------------- Random crawling
 	cycle_freq = 50
-	number_crawls = 100000
+	number_crawls = 200000
 	print_freq = 1000
 	term_steps = 50
 
