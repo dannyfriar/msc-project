@@ -44,7 +44,7 @@ def get_list_of_links(url, s=storage):
 			page = s.get_page("www."+url+"/")
 		if page is None:
 			return []
-	except UnicodeError:
+	except (UnicodeError, ValueError):
 		return []
 	try:
 		link_list = [l.url.replace("http://", "").replace("https://", "") for l in page.links if l.url[:4] == "http"]
@@ -149,7 +149,7 @@ def main():
 	##-------------------- Parameters
 	cycle_freq = 50
 	term_steps = 50
-	num_steps = 100000  # no. crawled pages before stopping
+	num_steps = 200000  # no. crawled pages before stopping
 	print_freq = 1000
 	start_eps = 0.1
 	end_eps = 0

@@ -149,7 +149,7 @@ def main():
 	##-------------------- Parameters
 	cycle_freq = 50
 	term_steps = 40
-	num_steps = 100000  # no. crawled pages before stopping
+	num_steps = 200000  # no. crawled pages before stopping
 	print_freq = 1000
 	start_eps = 0.1
 	end_eps = 0
@@ -266,7 +266,7 @@ def main():
 							A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
 							A_company.make_automaton()
 					else:
-						r = -0.02
+						r = -0.05
 					
 					# Feature representation of current page (state) and links in page
 					state = build_url_feature_matrix(count_vec, [url], revisit, found_rewards)
