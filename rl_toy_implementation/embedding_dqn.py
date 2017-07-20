@@ -77,6 +77,7 @@ def check_strings(A, search_list, string_to_search):
 	return output_list.tolist()
 
 def pad_shorten(s, max_len):
+	"""Pad URLs to max length"""
 	try:
 		s_out = np.pad(s, (0, max_len-len(s)), 'constant', constant_values=(0,0))
 	except ValueError as e:
@@ -234,13 +235,13 @@ class CrawlerAgent(object):
 def main():
 	##-------------------- Parameters
 	cycle_freq = 50
-	term_steps = 20
+	term_steps = 50
 	copy_steps = 100
 	num_steps = 200000  # no. crawled pages before stopping
 	print_freq = 1000
 	start_eps = 0.1
 	end_eps = 0
-	eps_decay = 2.5 / num_steps
+	eps_decay = 2 / num_steps
 	epsilon = start_eps
 	gamma = 0.75
 	learning_rate = 0.001
@@ -254,7 +255,7 @@ def main():
 	##-------------------- Read in data
 	links_df = pd.read_csv("new_data/links_dataframe.csv")
 	rm_list = ['aarp.org', 'akc.org', 'alcon.com', 'lincoln.com', 'orlakiely.com', 
-	'red.com', 'ef.com', 'ozarksfirst.com']
+	'red.com', 'ef.com', 'ozarksfirst.com']  # remove mis-labelled reward URLs
 	links_df['domain'] = links_df.domain.str.replace("www.", "")
 	links_df = links_df[~links_df['domain'].isin(rm_list)]
 	reward_urls = links_df[links_df['type']=='company-url']['url']
@@ -295,20 +296,19 @@ def main():
 
 		if reload_model == True:
 			print("Reloading model...")
-			random.seed(123)
 			saver = tf.train.import_meta_graph(model_save_file+"/tf_model.meta")
 			saver.restore(sess, tf.train.latest_checkpoint(model_save_file))
 			all_vars = tf.get_collection('vars')
-			test_urls = random.sample(url_set, 20000)
+			# test_urls = random.sample(url_set, 20000)
 			# pd.DataFrame.from_dict({'url':test_urls}).to_csv("data/random_url_sample.csv", index=False)
-			# # test_urls = pd.read_csv("data/random_url_sample.csv")['url'].tolist()
+			test_urls = pd.read_csv("data/random_url_sample.csv")['url'].tolist()
 			# state = build_url_feature_matrix(count_vec, test_urls, embeddings, max_len)
 			# v = sess.run(agent.v, feed_dict={agent.state: state}).reshape(-1).tolist()
 			# pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv(test_value_files, index=False)
 
-			test_urls = pd.read_csv("results/embedding_results/all_urls_revisit.csv", names=['url', 'v2', 'v3', 'v4'])['url'].tolist()
-			test_urls = list(set(test_urls))
-			test_urls = test_urls[:20000]
+			# test_urls = pd.read_csv("results/embedding_results/all_urls_revisit.csv", names=['url', 'v2', 'v3', 'v4'])['url'].tolist()
+			# test_urls = list(set(test_urls))
+			# test_urls = test_urls[:20000]
 			state_array = build_url_feature_matrix(count_vec, test_urls, embeddings, max_len)
 			v = sess.run(agent.v, feed_dict={agent.state: state_array}).reshape(-1).tolist()
 			pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv("results/embedding_results/visited_value.csv", index=False)
