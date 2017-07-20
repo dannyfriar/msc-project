@@ -144,9 +144,9 @@ def main():
 	reload_model = False
 	max_len = 50
 	embedding_size = 300
-	filter_sizes = [1, 2, 3]
-	num_filters = 3
-	batch_size = 500
+	filter_sizes = [1, 2, 3, 4]
+	num_filters = 4
+	batch_size = 1000
 	val_batch_size = 1000
 	n_batches = 3000
 	print_freq = 100
