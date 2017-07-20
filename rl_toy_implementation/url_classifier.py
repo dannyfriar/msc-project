@@ -140,7 +140,7 @@ class CNNClassifier(object):
 ##-----------------------------------------------------------
 def main():
 	##-------------------- Parameters
-	learning_rate = 0.0001
+	learning_rate = 0.0005
 	reload_model = False
 	max_len = 50
 	embedding_size = 300
@@ -166,6 +166,13 @@ def main():
 	links_df = shuffle(links_df)
 	train, test = train_test_split(links_df, test_size=0.5)
 	validation, test = train_test_split(test, test_size=0.8)
+
+	# Rebalancing data between classes in training set
+	company_df_list = [train[train['type'] == 'company-url']]*200
+	first_links_df_list = [train[train['type'] == 'first-hop-link']]*6
+	df_list = company_df_list + first_links_df_list
+	df_list.append(train)
+	train = shuffle(pd.concat(df_list))
 
 	# Embeddings matrix
 	print("Loading words and embeddings...")
