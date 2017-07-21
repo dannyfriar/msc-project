@@ -235,10 +235,10 @@ class CrawlerAgent(object):
 def main():
 	##-------------------- Parameters
 	cycle_freq = 50
-	term_steps = 50
+	term_steps = 20
 	copy_steps = 100
-	num_steps = 200000  # no. crawled pages before stopping
-	print_freq = 1000
+	num_steps = 2000000  # no. crawled pages before stopping
+	print_freq = 10000
 	start_eps = 0.1
 	end_eps = 0
 	eps_decay = 2 / num_steps
@@ -249,8 +249,8 @@ def main():
 
 	max_len = 50
 	embedding_size = 300
-	filter_sizes = [1, 2, 3]
-	num_filters = 3
+	filter_sizes = [1, 2, 3, 4]
+	num_filters = 4
 
 	##-------------------- Read in data
 	links_df = pd.read_csv("new_data/links_dataframe.csv")
