@@ -22,7 +22,7 @@ storage = StorageEngine("/nvme/rl_project_webcache/")
 from nltk.corpus import stopwords, words, names
 stops = stopwords.words("english")
 
-RESULTS_FOLDER = "results/classifier_results/"
+RESULTS_FOLDER = "results/bow_classifier_results/"
 MODEL_FOLDER = "models/"
 
 ##-----------------------------------------------------------
@@ -141,7 +141,7 @@ def main():
 
 	# File locations
 	training_file = RESULTS_FOLDER + "all_urls_revisit.csv"
-	model_save_file = MODEL_FOLDER + "classifier"
+	model_save_file = MODEL_FOLDER + "bow_classifier"
 	test_value_files = RESULTS_FOLDER + "test_value.csv"
 	feature_coefs_save_file = RESULTS_FOLDER + "feature_coefs.csv"
 	loss_list = []; batch_count = 0
