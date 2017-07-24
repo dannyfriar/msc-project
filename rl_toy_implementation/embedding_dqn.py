@@ -213,8 +213,8 @@ class CrawlerAgent(object):
 
 		# Compute target and incur loss
 		max_v_next = tf.reshape(tf.stop_gradient(tf.reduce_max(self.v_next)), [-1, 1])
-		target = self.reward + (1-self.is_terminal) * self.gamma * max_v_next
-		self.loss = tf.square(target - self.v) / 2
+		self.target = self.reward + (1-self.is_terminal) * self.gamma * max_v_next
+		self.loss = tf.square(self.target - self.v) / 2
 		self.opt = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.loss)
 
 	def update_target_net(self, sess, tf_vars):
@@ -296,44 +296,59 @@ def main():
 	with tf.Session() as sess:
 		sess.run(init)
 
+		# Debugging
+		url = get_random_url(url_list, recent_urls)
+		state_array = build_url_feature_matrix(count_vec, test_urls, embeddings, max_len)
+		link_list = get_list_of_links(url)
+		link_list = set(link_list).intersection(url_set)
+		link_list = list(link_list - set(recent_urls))
+		next_state_array = build_url_feature_matrix(count_vec, link_list, embeddings, max_len)
+		train_dict = {
+				agent.state: state, agent.next_state: next_state_array, 
+				agent.reward: r, agent.is_terminal: is_terminal
+		}
+		opt, loss, v_next  = sess.run([agent.opt, agent.loss, agent.v_next], feed_dict=train_dict)
+		input("Press enter to continue...")
+
+
 		if reload_model == True:
 			print("Reloading model...")
 			saver = tf.train.import_meta_graph(model_save_file+"/tf_model.meta")
 			saver.restore(sess, tf.train.latest_checkpoint(model_save_file))
 			all_vars = tf.get_collection('vars')
 
-			# # test_urls = random.sample(url_set, 20000)
-			# # pd.DataFrame.from_dict({'url':test_urls}).to_csv("data/random_url_sample.csv", index=False)
-			# # test_urls = pd.read_csv("data/random_url_sample.csv")['url'].tolist()
+			# test_urls = random.sample(url_set, 20000)
+			# pd.DataFrame.from_dict({'url':test_urls}).to_csv("data/random_url_sample.csv", index=False)
+			# test_urls = pd.read_csv("data/random_url_sample.csv")['url'].tolist()
+			test_urls = pd.read_csv("results/embedding_results/all_urls_revisit.csv", names=['url', 'v2', 'v3', 'v4'])['url'].tolist()
+			test_urls = list(set(test_urls))
+			test_urls = test_urls[:20000]
+			print("Testing representation...")
+			# state = build_url_feature_matrix(count_vec, test_urls, embeddings, max_len)
+			# v = sess.run(agent.v, feed_dict={agent.state: state}).reshape(-1).tolist()
+			# pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv(test_value_files, index=False)
+
 			# test_urls = pd.read_csv("results/embedding_results/all_urls_revisit.csv", names=['url', 'v2', 'v3', 'v4'])['url'].tolist()
 			# test_urls = list(set(test_urls))
 			# test_urls = test_urls[:20000]
-			# print("Testing representation...")
-			# # state = build_url_feature_matrix(count_vec, test_urls, embeddings, max_len)
-			# # v = sess.run(agent.v, feed_dict={agent.state: state}).reshape(-1).tolist()
-			# # pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv(test_value_files, index=False)
+			state_array = build_url_feature_matrix(count_vec, test_urls, embeddings, max_len)
+			v = sess.run(agent.v, feed_dict={agent.state: state_array}).reshape(-1).tolist()
+			# pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv("results/embedding_results/visited_value.csv", index=False)
+			pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv("results/embedding_results/predicted_value.csv", index=False)
 
-			# # test_urls = pd.read_csv("results/embedding_results/all_urls_revisit.csv", names=['url', 'v2', 'v3', 'v4'])['url'].tolist()
-			# # test_urls = list(set(test_urls))
-			# # test_urls = test_urls[:20000]
-			# state_array = build_url_feature_matrix(count_vec, test_urls, embeddings, max_len)
-			# v = sess.run(agent.v, feed_dict={agent.state: state_array}).reshape(-1).tolist()
-			# # pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv("results/embedding_results/visited_value.csv", index=False)
-			# pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv("results/embedding_results/predicted_value.csv", index=False)
+			# links_df['value'] = 0
+			# links_df.loc[links_df['type'] == 'company-url', 'value'] = 1
+			# links_df.loc[links_df['type'] == 'first-hop-link', 'value'] = 0.75
+			# links_df.loc[links_df['type'] == 'second-hop-link', 'value'] = 0.75**2
+			# links_df = shuffle(links_df)
+			# train, test = train_test_split(links_df, test_size=0.5)
 
-			links_df['value'] = 0
-			links_df.loc[links_df['type'] == 'company-url', 'value'] = 1
-			links_df.loc[links_df['type'] == 'first-hop-link', 'value'] = 0.75
-			links_df.loc[links_df['type'] == 'second-hop-link', 'value'] = 0.75**2
-			links_df = shuffle(links_df)
-			train, test = train_test_split(links_df, test_size=0.5)
-
-			test_batch = test.sample(n=20000)
-			urls_test = test_batch['url'].tolist()
-			url_test_array = build_url_feature_matrix(count_vec, urls_test, embeddings, max_len)
-			output = sess.run(agent.v, feed_dict={agent.state: url_test_array})
-			test_batch['predicted_value'] = output.reshape(-1).tolist()
-			test_batch.to_csv("results/embedding_results/test_rep.csv", index=False)
+			# test_batch = test.sample(n=20000)
+			# urls_test = test_batch['url'].tolist()
+			# url_test_array = build_url_feature_matrix(count_vec, urls_test, embeddings, max_len)
+			# output = sess.run(agent.v, feed_dict={agent.state: url_test_array})
+			# test_batch['predicted_value'] = output.reshape(-1).tolist()
+			# test_batch.to_csv("results/embedding_results/test_rep.csv", index=False)
 
 		else:
 			##------------------ Run and train crawler agent -----------------------
