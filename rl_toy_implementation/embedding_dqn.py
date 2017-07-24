@@ -245,7 +245,7 @@ def main():
 	epsilon = start_eps
 	gamma = 0.75
 	learning_rate = 0.001
-	reload_model = False
+	reload_model = True
 
 	max_len = 50
 	embedding_size = 300
@@ -301,7 +301,11 @@ def main():
 			all_vars = tf.get_collection('vars')
 			# test_urls = random.sample(url_set, 20000)
 			# pd.DataFrame.from_dict({'url':test_urls}).to_csv("data/random_url_sample.csv", index=False)
-			test_urls = pd.read_csv("data/random_url_sample.csv")['url'].tolist()
+			# test_urls = pd.read_csv("data/random_url_sample.csv")['url'].tolist()
+			test_urls = pd.read_csv("results/embedding_results/all_urls_revisit.csv", names=['url', 'v2', 'v3', 'v4'])['url'].tolist()
+			test_urls = list(set(test_urls))
+			test_urls = test_urls[:20000]
+			print("Testing representation...")
 			# state = build_url_feature_matrix(count_vec, test_urls, embeddings, max_len)
 			# v = sess.run(agent.v, feed_dict={agent.state: state}).reshape(-1).tolist()
 			# pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv(test_value_files, index=False)
@@ -311,7 +315,8 @@ def main():
 			# test_urls = test_urls[:20000]
 			state_array = build_url_feature_matrix(count_vec, test_urls, embeddings, max_len)
 			v = sess.run(agent.v, feed_dict={agent.state: state_array}).reshape(-1).tolist()
-			pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv("results/embedding_results/visited_value.csv", index=False)
+			# pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv("results/embedding_results/visited_value.csv", index=False)
+			pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv("results/embedding_results/predicted_value.csv", index=False)
 
 		else:
 			##------------------ Run and train crawler agent -----------------------
