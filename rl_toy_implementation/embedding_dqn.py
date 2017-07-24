@@ -212,8 +212,8 @@ class CrawlerAgent(object):
 		self.v = tf.nn.sigmoid(tf.matmul(h_pool_flat, W_out) + b_out)
 
 		# Compute target and incur loss
-		max_v_next = tf.reshape(tf.stop_gradient(tf.reduce_max(self.v_next)), [-1, 1])
-		self.target = self.reward + (1-self.is_terminal) * self.gamma * max_v_next
+		self.max_v_next = tf.reshape(tf.stop_gradient(tf.reduce_max(self.v_next)), [-1, 1])
+		self.target = self.reward + (1-self.is_terminal) * self.gamma * self.max_v_next
 		self.loss = tf.square(self.target - self.v) / 2
 		self.opt = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.loss)
 
@@ -296,21 +296,6 @@ def main():
 	with tf.Session() as sess:
 		sess.run(init)
 
-		# Debugging
-		url = get_random_url(url_list, recent_urls)
-		state_array = build_url_feature_matrix(count_vec, test_urls, embeddings, max_len)
-		link_list = get_list_of_links(url)
-		link_list = set(link_list).intersection(url_set)
-		link_list = list(link_list - set(recent_urls))
-		next_state_array = build_url_feature_matrix(count_vec, link_list, embeddings, max_len)
-		train_dict = {
-				agent.state: state, agent.next_state: next_state_array, 
-				agent.reward: r, agent.is_terminal: is_terminal
-		}
-		opt, loss, v_next  = sess.run([agent.opt, agent.loss, agent.v_next], feed_dict=train_dict)
-		input("Press enter to continue...")
-
-
 		if reload_model == True:
 			print("Reloading model...")
 			saver = tf.train.import_meta_graph(model_save_file+"/tf_model.meta")
@@ -321,8 +306,7 @@ def main():
 			# pd.DataFrame.from_dict({'url':test_urls}).to_csv("data/random_url_sample.csv", index=False)
 			# test_urls = pd.read_csv("data/random_url_sample.csv")['url'].tolist()
 			test_urls = pd.read_csv("results/embedding_results/all_urls_revisit.csv", names=['url', 'v2', 'v3', 'v4'])['url'].tolist()
-			test_urls = list(set(test_urls))
-			test_urls = test_urls[:20000]
+			test_urls = random.sample(test_urls, 20000)
 			print("Testing representation...")
 			# state = build_url_feature_matrix(count_vec, test_urls, embeddings, max_len)
 			# v = sess.run(agent.v, feed_dict={agent.state: state}).reshape(-1).tolist()
