@@ -94,8 +94,8 @@ class CNNClassifier(object):
 
 		# Set up training parameters and TF placeholders
 		self.learning_rate = learning_rate
-		self.x = tf.placeholder(dtype=tf.int32, shape=[None, self.max_len])
-		self.y = tf.placeholder(dtype=tf.float32, shape=[None, 1])
+		self.x = tf.placeholder(dtype=tf.int32, shape=[None, self.max_len], name='x')
+		self.y = tf.placeholder(dtype=tf.float32, shape=[None, 1], name='y')
 		self.embeddings_net()
 		self.tf_model_folder = tf_model_folder
 
@@ -196,9 +196,12 @@ def main():
 		model_save_file, learning_rate=learning_rate)
 	init = tf.global_variables_initializer()
 	saver = tf.train.Saver()
+	writer = tf.summary.FileWriter("summaries/embed_class_logs", tf.get_default_graph())
+	merged = tf.summary.merge_all()
 
 	with tf.Session() as sess:
 		sess.run(init)
+		input("Press enter to continue")
 
 		if reload_model == True:
 			print("Reloading model...")
@@ -215,8 +218,8 @@ def main():
 
 		else:
 			print("Training...")
-			if os.path.isfile(training_file):
-				os.remove(training_file)
+			# if os.path.isfile(training_file):
+			# 	os.remove(training_file)
 
 			for i in range(n_batches):
 				# Get batch of URLs
@@ -240,9 +243,9 @@ def main():
 					val_loss = sess.run([agent.loss], feed_dict={agent.x: url_val_array, agent.y: y_val})
 					val_loss = np.mean(val_loss)
 
-					with open(training_file, "a") as csv_file:
-						writer = csv.writer(csv_file, delimiter=',')
-						writer.writerow([batch_count, loss, val_loss])
+					# with open(training_file, "a") as csv_file:
+					# 	writer = csv.writer(csv_file, delimiter=',')
+					# 	writer.writerow([batch_count, loss, val_loss])
 
 					print("\nAfter {} batches, training loss = {}, validation loss = {}"\
 						.format(batch_count, loss, val_loss))
