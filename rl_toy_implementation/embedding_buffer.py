@@ -278,7 +278,7 @@ def main():
 	epsilon = start_eps
 	gamma = 0.75
 	learning_rate = 0.001
-	reload_model = False
+	reload_model = True
 
 	train_sample_size = 100
 	max_len = 50
