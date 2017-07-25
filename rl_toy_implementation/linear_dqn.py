@@ -133,8 +133,8 @@ class CrawlerAgent(object):
 		self.weights = tf.get_variable("weights", [self.weights_shape, 1], 
 			initializer=tf.random_normal_initializer(mean=0.0, stddev=0.001))
 		self.bias = tf.get_variable('bias', [1], initializer=tf.constant_initializer(0.001))
-		self.v = tf.matmul(self.state, self.weights) + self.bias
-		self.v_next = tf.matmul(self.next_state, self.weights) + self.bias
+		self.v = tf.nn.sigmoid(tf.matmul(self.state, self.weights) + self.bias)
+		self.v_next = tf.nn.sigmoid(tf.matmul(self.next_state, self.weights) + self.bias)
 		self.target = self.reward + (1-self.is_terminal) * self.gamma * tf.stop_gradient(tf.reduce_max(self.v_next))
 		self.loss = tf.square(self.target - self.v)/2
 		self.opt = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.loss)
