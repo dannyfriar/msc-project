@@ -269,18 +269,18 @@ def main():
 	##-------------------- Parameters
 	cycle_freq = 50
 	term_steps = 15
-	copy_steps = 1000
-	num_steps = 2000000  # no. crawled pages before stopping
-	print_freq = 10000
+	copy_steps = 10
+	num_steps = 20000  # no. crawled pages before stopping
+	print_freq = 1000
 	start_eps = 0.1
 	end_eps = 0
 	eps_decay = 2 / num_steps
 	epsilon = start_eps
 	gamma = 0.75
 	learning_rate = 0.001
-	reload_model = True
+	reload_model = False
 
-	train_sample_size = 1
+	train_sample_size = 100
 	max_len = 50
 	embedding_size = 300
 	filter_sizes = [1, 2, 3, 4]
@@ -345,20 +345,6 @@ def main():
 			v = sess.run(agent.v, feed_dict={agent.state: state_array}).reshape(-1).tolist()
 			pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv("results/embedding_buffer_results/predicted_value.csv", index=False)
 
-			# links_df['value'] = 0
-			# links_df.loc[links_df['type'] == 'company-url', 'value'] = 1
-			# links_df.loc[links_df['type'] == 'first-hop-link', 'value'] = 0.75
-			# links_df.loc[links_df['type'] == 'second-hop-link', 'value'] = 0.75**2
-			# links_df = shuffle(links_df)
-			# train, test = train_test_split(links_df, test_size=0.5)
-
-			# test_batch = test.sample(n=20000)
-			# urls_test = test_batch['url'].tolist()
-			# url_test_array = build_url_feature_matrix(count_vec, urls_test, embeddings, max_len)
-			# output = sess.run(agent.v, feed_dict={agent.state: url_test_array})
-			# test_batch['predicted_value'] = output.reshape(-1).tolist()
-			# test_batch.to_csv("results/embedding_buffer_results/test_rep.csv", index=False)
-
 		else:
 			##------------------ Run and train crawler agent -----------------------
 			print("Training DQN agent...")
@@ -416,9 +402,10 @@ def main():
 					if step_count % copy_steps == 0:
 						agent.update_target_net(sess, tf.trainable_variables())
 						agent.save_tf_model(sess, saver)
-						with open(all_urls_file, "a") as csv_file:
-							writer = csv.writer(csv_file, delimiter=',')
-							writer.writerow([url, r, is_terminal, float(loss)])
+
+					with open(all_urls_file, "a") as csv_file:
+						writer = csv.writer(csv_file, delimiter=',')
+						writer.writerow([url, r, is_terminal, float(loss)])
 
 					# Print progress + save transitions
 					progress_bar(step_count+1, num_steps)
