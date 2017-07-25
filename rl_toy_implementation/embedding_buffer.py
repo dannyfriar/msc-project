@@ -342,19 +342,19 @@ def main():
 			# v = sess.run(agent.v, feed_dict={agent.state: state_array}).reshape(-1).tolist()
 			# pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv("results/embedding_buffer_results/predicted_value.csv", index=False)
 
-			links_df['value'] = 0
-			links_df.loc[links_df['type'] == 'company-url', 'value'] = 1
-			links_df.loc[links_df['type'] == 'first-hop-link', 'value'] = 0.75
-			links_df.loc[links_df['type'] == 'second-hop-link', 'value'] = 0.75**2
-			links_df = shuffle(links_df)
-			train, test = train_test_split(links_df, test_size=0.5)
+			# links_df['value'] = 0
+			# links_df.loc[links_df['type'] == 'company-url', 'value'] = 1
+			# links_df.loc[links_df['type'] == 'first-hop-link', 'value'] = 0.75
+			# links_df.loc[links_df['type'] == 'second-hop-link', 'value'] = 0.75**2
+			# links_df = shuffle(links_df)
+			# train, test = train_test_split(links_df, test_size=0.5)
 
-			test_batch = test.sample(n=20000)
-			urls_test = test_batch['url'].tolist()
-			url_test_array = build_url_feature_matrix(count_vec, urls_test, embeddings, max_len)
-			output = sess.run(agent.v, feed_dict={agent.state: url_test_array})
-			test_batch['predicted_value'] = output.reshape(-1).tolist()
-			test_batch.to_csv("results/embedding_buffer_results/test_rep.csv", index=False)
+			# test_batch = test.sample(n=20000)
+			# urls_test = test_batch['url'].tolist()
+			# url_test_array = build_url_feature_matrix(count_vec, urls_test, embeddings, max_len)
+			# output = sess.run(agent.v, feed_dict={agent.state: url_test_array})
+			# test_batch['predicted_value'] = output.reshape(-1).tolist()
+			# test_batch.to_csv("results/embedding_buffer_results/test_rep.csv", index=False)
 
 		else:
 			##------------------ Run and train crawler agent -----------------------
