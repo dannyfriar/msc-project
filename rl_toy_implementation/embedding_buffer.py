@@ -131,7 +131,7 @@ def epsilon_greedy(epsilon, action_list):
 class Buffer(object):
 	def __init__(self):
 		self.min_buffer_size = 1
-		self.max_buffer_size = 5000
+		self.max_buffer_size = 20000
 		self.alpha = 0.5
 		self.beta = 1
 		self.buffer = []
@@ -270,8 +270,8 @@ def main():
 	cycle_freq = 50
 	term_steps = 15
 	copy_steps = 10
-	num_steps = 1000000  # no. crawled pages before stopping
-	print_freq = 10000
+	num_steps = 20000  # no. crawled pages before stopping
+	print_freq = 1000
 	start_eps = 0.1
 	end_eps = 0
 	eps_decay = 2 / num_steps
@@ -280,7 +280,7 @@ def main():
 	learning_rate = 0.001
 	reload_model = False
 
-	train_sample_size = 2
+	train_sample_size = 100
 	max_len = 50
 	embedding_size = 300
 	filter_sizes = [1, 2, 3, 4]
