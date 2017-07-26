@@ -115,7 +115,7 @@ def epsilon_greedy(epsilon, action_list):
 class Buffer(object):
 	def __init__(self):
 		self.min_buffer_size = 1
-		self.max_buffer_size = 1000
+		self.max_buffer_size = 5000
 		self.alpha = 0.5
 		self.beta = 1
 		self.buffer = []
@@ -206,7 +206,7 @@ def main():
 	learning_rate = 0.001
 	priority = True
 	train_sample_size = 1
-	reload_model = False
+	reload_model = True
 
 	##-------------------- Read in data
 	links_df = pd.read_csv("new_data/links_dataframe.csv")
@@ -267,10 +267,13 @@ def main():
 			weights_df.to_csv(feature_coefs_save_file, index=False, header=True)
 
 			# Test URLs
-			test_urls = pd.read_csv("data/random_url_sample.csv")['url'].tolist()
+			# test_urls = pd.read_csv("data/random_url_sample.csv")['url'].tolist()
+			test_urls = pd.read_csv("results/linear_dqn_results/all_urls_revisit.csv", names=['url', 'v2', 'v3', 'v4'])['url'].tolist()
+			test_urls = random.sample(test_urls, 20000)
 			state_array = build_url_feature_matrix(count_vec, test_urls, revisit, found_rewards)
 			v = sess.run(agent.v, feed_dict={agent.state: state_array}).reshape(-1).tolist()
-			pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv(test_value_files, index=False)
+			# pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv(test_value_files, index=False)
+			pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv("results/linear_buffer_results/visited_value.csv", index=False)
 
 		else:
 			##------------------ Run and train crawler agent -----------------------
