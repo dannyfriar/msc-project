@@ -269,7 +269,8 @@ def main():
 			# Test URLs
 			# test_urls = pd.read_csv("data/random_url_sample.csv")['url'].tolist()
 			test_urls = pd.read_csv("results/linear_dqn_results/all_urls_revisit.csv", names=['url', 'v2', 'v3', 'v4'])['url'].tolist()
-			test_urls = random.sample(test_urls, 20000)
+			# test_urls = random.sample(test_urls, 20000)
+			test_urls = test_urls[:20000]
 			state_array = build_url_feature_matrix(count_vec, test_urls, revisit, found_rewards)
 			v = sess.run(agent.v, feed_dict={agent.state: state_array}).reshape(-1).tolist()
 			# pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv(test_value_files, index=False)
