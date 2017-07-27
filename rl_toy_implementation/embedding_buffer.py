@@ -269,18 +269,18 @@ def main():
 	##-------------------- Parameters
 	cycle_freq = 50
 	term_steps = 15
-	copy_steps = 10
-	num_steps = 20000  # no. crawled pages before stopping
+	copy_steps = 100
+	num_steps = 200000  # no. crawled pages before stopping
 	print_freq = 1000
 	start_eps = 0.1
 	end_eps = 0
-	eps_decay = 2 / num_steps
+	eps_decay = 2.5 / num_steps
 	epsilon = start_eps
 	gamma = 0.75
 	learning_rate = 0.001
-	reload_model = True
+	reload_model = False
 
-	train_sample_size = 100
+	train_sample_size = 10
 	max_len = 50
 	embedding_size = 300
 	filter_sizes = [1, 2, 3, 4]
