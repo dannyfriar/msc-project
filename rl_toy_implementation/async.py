@@ -3,6 +3,7 @@ import sys
 import re
 import csv
 import time
+import zstd
 import random
 import pickle
 import argparse
@@ -213,16 +214,15 @@ class QNetwork(object):
 			self.v_next = tf.nn.sigmoid(tf.matmul(h_pool_flat_next, W_out_target) + b_out_target)
 
 
-			#---- Loss function and gradients
-			if scope != 'global':
+			#---- Loss function and gradients (only for training workers)
+			if scope not in ['global', 'eval_worker']:
 				self.max_v_next = tf.reshape(tf.stop_gradient(tf.reduce_max(self.v_next)), [-1, 1])
 				self.target = self.reward + (1-self.is_terminal) * self.gamma * self.max_v_next
 				self.loss = tf.square(self.target - self.v) / 2
-				# self.opt = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.loss)
 
 				# Get gradients from local network using local losses
 				local_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope)
-				self.gradients = tf.gradients(self.loss,local_vars)
+				self.gradients = tf.gradients(self.loss, local_vars)
 
 				# Apply local gradients to global network
 				global_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 'global')
@@ -231,9 +231,11 @@ class QNetwork(object):
 ##-----------------------------------------------------------
 ##-------- DQN Agent ----------------------------------------
 class Worker():
-	def __init__(self, name, cycle_freq, term_steps, num_steps, start_eps, 
+	def __init__(self, name, print_freq, cycle_freq, term_steps, num_steps, start_eps, 
 		end_eps, eps_decay, gamma, max_len, embeddings, embedding_size, filter_sizes,
-		num_filters, url_list, count_vec, copy_steps, trainer, A_company, reward_urls):
+		num_filters, url_list, count_vec, copy_steps, trainer, A_company, reward_urls,
+		model_path, model_save_steps=1000, eval_worker=False, results_file=None):
+		self.print_freq = print_freq
 		self.cycle_freq = cycle_freq
 		self.term_steps = term_steps
 		self.num_steps = num_steps
@@ -254,8 +256,19 @@ class Worker():
 		self.A_company = A_company
 		self.reward_urls = reward_urls
 		self.trainer = trainer
+		self.model_path = model_path
+		self.model_save_steps = model_save_steps
+		self.eval_worker = eval_worker
+		self.results_file = results_file
 
-		self.name = "worker_" + str(name)
+		if eval_worker == True:
+			self.name = "eval_worker"
+			if results_file != None:
+				if os.path.isfile(results_file):
+					os.remove(results_file)
+		else:
+			self.name = "worker_" + str(name)
+		
 		self.local_Q = QNetwork(self.filter_sizes, self.num_filters, self.embeddings, 
 			self.embedding_size, self.max_len, self.gamma,
 			self.name, self.trainer)
@@ -264,9 +277,14 @@ class Worker():
 		self.step_count = 0; self.pages_crawled = 0; self.total_reward = 0; 
 		self.terminal_states = 0; self.recent_urls = []
 
-	def train(self, sess, saver, coord):
-		"""Run agent in environment and train and update parameters"""
-		print ("Starting worker " + str(self.name))
+	def work(self, sess, saver, coord):
+		"""Run agent in environment and train and update parameters or evaluate if
+		eval_worker==True"""
+		if self.eval_worker == True:
+			print("Starting evaluation worker " + str(self.name))
+		else:
+			print("Starting worker " + str(self.name))
+
 		with sess.as_default(), sess.graph.as_default():
 			while not coord.should_stop():
 
@@ -289,7 +307,11 @@ class Worker():
 						
 						# Feature representation of current page (state) and links in page
 						state = build_url_feature_matrix(self.count_vec, [url], self.embeddings, self.max_len)
-						link_list = get_list_of_links(url)
+						try:
+							link_list = get_list_of_links(url)
+						except zstd.ZstdError as e:
+							print(url)
+							raise
 						link_list = set(link_list).intersection(self.url_set)
 						link_list = list(link_list - set(self.recent_urls))
 
@@ -304,12 +326,15 @@ class Worker():
 							next_state_array = build_url_feature_matrix(self.count_vec, link_list,
 								self.embeddings, self.max_len)
 
-						# Train DQN
-						train_dict = {
-								self.local_Q.state: state, self.local_Q.next_state: next_state_array, 
-								self.local_Q.reward: r, self.local_Q.is_terminal: is_terminal
-						}
-						loss, v_next  = sess.run([self.local_Q.loss, self.local_Q.v_next], feed_dict=train_dict)
+						# Train DQN (or evaluate performance)
+						if self.eval_worker == True:
+							v_next  = sess.run(self.local_Q.v_next, feed_dict={self.local_Q.next_state: next_state_array})
+						else:
+							train_dict = {
+									self.local_Q.state: state, self.local_Q.next_state: next_state_array, 
+									self.local_Q.reward: r, self.local_Q.is_terminal: is_terminal
+							}
+							loss, v_next  = sess.run([self.local_Q.loss, self.local_Q.v_next], feed_dict=train_dict)
 						v_next = v_next.reshape(-1)
 
 						# Decay epsilon
@@ -321,18 +346,36 @@ class Worker():
 							break
 						if self.steps_without_terminating >= self.term_steps:  # to prevent cycles
 							break
-						a = epsilon_greedy(self.epsilon, v_next)
+
+						if self.eval_worker == True:
+							a = np.argmax(v_next)
+							self.update_progress()
+							self.write_results(url, r, is_terminal)
+						else:
+							a = epsilon_greedy(self.epsilon, v_next)
 						url = link_list[a]
 
 						# Copy parameters to local network
 						if self.pages_crawled % self.copy_steps == 0:
 							sess.run(self.update_local_ops)
-							self.update_progress()
 
+						if self.pages_crawled % self.model_save_steps == 0:
+							self.save_tf_model(saver, sess)
+
+	def save_tf_model(self, saver, sess):
+		saver.save(sess, "/".join([self.model_path, "tf_model"]))
 
 	def update_progress(self):
-		print("\nWorker {}: Crawled {} pages, total reward = {}, # terminal states = {}"\
-		.format(self.name, self.pages_crawled, self.total_reward, self.terminal_states))
+		sys.stdout = open(str(os.getpid()) + ".out", "w")
+		progress_bar(self.pages_crawled+1, self.num_steps)
+		if self.pages_crawled % self.print_freq == 0:
+			print("\nWorker {}: Crawled {} pages, total reward = {}, # terminal states = {}"\
+			.format(self.name, self.pages_crawled, self.total_reward, self.terminal_states))
+
+	def write_results(self, url, r, is_terminal):
+		with open(self.results_file, "a") as csv_file:
+			writer = csv.writer(csv_file, delimiter=',')
+			writer.writerow([url, r, is_terminal])
 
 
 def main():
@@ -340,11 +383,11 @@ def main():
 	cycle_freq = 50
 	term_steps = 15
 	copy_steps = 100
-	num_steps = 2000  # no. crawled pages before stopping
+	num_steps = 200000  # no. crawled pages before stopping
 	print_freq = 1000
-	start_eps = 0.1
+	start_eps = 0.5
 	end_eps = 0
-	eps_decay = 2.5 / num_steps
+	eps_decay = 2 / num_steps
 	epsilon = start_eps
 	gamma = 0.75
 	learning_rate = 0.001
@@ -356,7 +399,7 @@ def main():
 	num_filters = 4
 
 	##-------------------- Read in data
-	print("Loading data...")
+	print("#-------------- Loading data...")
 	links_df = pd.read_csv("new_data/links_dataframe.csv")
 	rm_list = ['aarp.org', 'akc.org', 'alcon.com', 'lincoln.com', 'orlakiely.com', 
 	'red.com', 'ef.com', 'ozarksfirst.com']  # remove mis-labelled reward URLs
@@ -381,7 +424,7 @@ def main():
 
 	# Model path
 	model_save_file = MODEL_FOLDER + "async"
-
+	all_urls_file = RESULTS_FOLDER + "all_urls_revisit.csv"
 
 	#---------------------- Initialize workers and TF graph
 	tf.reset_default_graph()
@@ -391,37 +434,36 @@ def main():
 		master_net = QNetwork(filter_sizes, num_filters, embeddings, embedding_size,
 			max_len, gamma, 'global', None)
 
-		# num_workers = multiprocessing.cpu_count() # Set workers ot number of available CPU threads
-		num_workers = 2
+		num_workers = int(multiprocessing.cpu_count()/2) # Set workers to number of available CPU threads
 		workers = []
 		# Create worker classes
 		for i in range(num_workers):
-			workers.append(Worker(i, cycle_freq, term_steps, num_steps, start_eps, end_eps,
+			workers.append(Worker(i, print_freq, cycle_freq, term_steps, num_steps, start_eps, end_eps,
 				eps_decay, gamma, max_len, embeddings, embedding_size, filter_sizes,
-				num_filters, url_list, count_vec, copy_steps, trainer, A_company, reward_urls))
-			saver = tf.train.Saver()
+				num_filters, url_list, count_vec, copy_steps, trainer, A_company, reward_urls,
+				model_path=model_save_file, model_save_steps=1000))
+		workers.append(Worker(num_workers+1, print_freq, cycle_freq, term_steps, num_steps, start_eps, end_eps,
+			eps_decay, gamma, max_len, embeddings, embedding_size, filter_sizes,
+			num_filters, url_list, count_vec, copy_steps, trainer, A_company, reward_urls,
+			model_path=model_save_file, model_save_steps=1000, eval_worker=True, results_file=all_urls_file))
+		saver = tf.train.Saver()
 
-
-	#---------------------- Run workers
+	#---------------------- Run workers in separate threads
+	print("#-------------- Starting workers...")
 	with tf.Session() as sess:
 		coord = tf.train.Coordinator()
 		sess.run(tf.global_variables_initializer())
 
 		worker_threads = []
-		for worker in workers:
-			worker_work = lambda: worker.train(sess, saver, coord)
-			t = threading.Thread(target=(worker_work))
+		for idx, worker in enumerate(workers):
+			worker_work = lambda: worker.work(sess, saver, coord)
+			# t = threading.Thread(target=(worker_work), name="Thread"+str(idx))
+			t = multiprocessing.Process(target=worker_work)
 			t.start()
 			time.sleep(0.5)
 			worker_threads.append(t)
 		coord.join(worker_threads)
 
 
-
 if __name__ == "__main__":
 	main()
-
-
-
-
-
