@@ -339,7 +339,8 @@ def main():
 			# test_urls = pd.read_csv("data/random_url_sample.csv")['url'].tolist()
 			test_urls = pd.read_csv("results/embedding_buffer_results/all_urls_revisit.csv", names=['url', 'v2', 'v3', 'v4'])['url'].tolist()
 			# test_urls = test_urls + random.sample(reward_urls, 100)
-			test_urls = random.sample(test_urls, 20000)
+			# test_urls = random.sample(test_urls, 20000)
+			test_urls = test_urls[:20000]
 			print(len(test_urls))
 			print("Testing representation...")
 			# print("Testing representation...")
