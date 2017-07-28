@@ -366,7 +366,6 @@ class Worker():
 		saver.save(sess, "/".join([self.model_path, "tf_model"]))
 
 	def update_progress(self):
-		sys.stdout = open(str(os.getpid()) + ".out", "w")
 		progress_bar(self.pages_crawled+1, self.num_steps)
 		if self.pages_crawled % self.print_freq == 0:
 			print("\nWorker {}: Crawled {} pages, total reward = {}, # terminal states = {}"\
@@ -457,8 +456,8 @@ def main():
 		worker_threads = []
 		for idx, worker in enumerate(workers):
 			worker_work = lambda: worker.work(sess, saver, coord)
-			# t = threading.Thread(target=(worker_work), name="Thread"+str(idx))
-			t = multiprocessing.Process(target=worker_work)
+			t = threading.Thread(target=(worker_work), name="Thread"+str(idx))
+			# t = multiprocessing.Process(target=worker_work)
 			t.start()
 			time.sleep(0.5)
 			worker_threads.append(t)
