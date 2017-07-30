@@ -341,6 +341,11 @@ class Worker():
 						if self.epsilon > self.end_eps:
 							self.epsilon = self.epsilon - self.eps_decay
 
+						# Print output if eval worker
+						if self.eval_worker == True:
+							self.write_results(url, r, is_terminal)
+							self.update_progress()
+
 						# Choose next URL (and check for looping)
 						if is_terminal == 1:
 							break
@@ -349,8 +354,6 @@ class Worker():
 
 						if self.eval_worker == True:
 							a = np.argmax(v_next)
-							self.update_progress()
-							self.write_results(url, r, is_terminal)
 						else:
 							a = epsilon_greedy(self.epsilon, v_next)
 						url = link_list[a]
@@ -361,6 +364,9 @@ class Worker():
 
 						if self.pages_crawled % self.model_save_steps == 0:
 							self.save_tf_model(saver, sess)
+
+				print("\nFinished worker {}".format(self.name))
+				break
 
 	def save_tf_model(self, saver, sess):
 		saver.save(sess, "/".join([self.model_path, "tf_model"]))
@@ -380,8 +386,8 @@ class Worker():
 def main():
 	##-------------------- Parameters
 	cycle_freq = 50
-	term_steps = 15
-	copy_steps = 100
+	term_steps = 20
+	copy_steps = 1000
 	num_steps = 200000  # no. crawled pages before stopping
 	print_freq = 1000
 	start_eps = 0.5
@@ -441,7 +447,7 @@ def main():
 				eps_decay, gamma, max_len, embeddings, embedding_size, filter_sizes,
 				num_filters, url_list, count_vec, copy_steps, trainer, A_company, reward_urls,
 				model_path=model_save_file, model_save_steps=1000))
-		workers.append(Worker(num_workers+1, print_freq, cycle_freq, term_steps, num_steps, start_eps, end_eps,
+		workers.append(Worker(num_workers+1, print_freq, cycle_freq, 10, num_steps, start_eps, end_eps,
 			eps_decay, gamma, max_len, embeddings, embedding_size, filter_sizes,
 			num_filters, url_list, count_vec, copy_steps, trainer, A_company, reward_urls,
 			model_path=model_save_file, model_save_steps=1000, eval_worker=True, results_file=all_urls_file))
@@ -462,6 +468,7 @@ def main():
 			time.sleep(0.5)
 			worker_threads.append(t)
 		coord.join(worker_threads)
+		print("Here")
 
 
 if __name__ == "__main__":
