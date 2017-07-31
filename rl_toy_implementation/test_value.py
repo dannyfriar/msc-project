@@ -74,7 +74,6 @@ def append_backlinks(url, backlinks, link_list):
 	link_list.append(backlink[0])
 	return link_list
 
-
 def init_automaton(string_list):
 	"""Make Aho-Corasick automaton from a list of strings"""
 	A = ahocorasick.Automaton()
@@ -116,7 +115,7 @@ url_list = list(url_set)
 # Read random sample of URLs
 # test_urls = pd.read_csv("data/random_url_sample.csv")['url'].tolist()  # random URLs
 # test_urls = pd.read_csv("results/linear_dqn_results/visited_value.csv")['url'].tolist()
-test_urls = pd.read_csv("results/embedding_buffer_results/predicted_value.csv")['url'].tolist()
+test_urls = pd.read_csv("results/async_results/predicted_value.csv")['url'].tolist()
 print(len(test_urls))
 
 gamma = 0.9
@@ -183,5 +182,5 @@ print("\nSaving Results...")
 print(len(results_dict['url']))
 print(len(results_dict['true_value']))
 # pd.DataFrame.from_dict(results_dict).to_csv("results/actual_value_revisit.csv", index=False)
-pd.DataFrame.from_dict(results_dict).to_csv("results/embedding_buffer_results/actual_value_visited.csv", index=False)
+pd.DataFrame.from_dict(results_dict).to_csv("results/async_results/actual_value_visited.csv", index=False)
 print("Done.")
