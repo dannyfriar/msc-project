@@ -456,20 +456,38 @@ def main():
 	#---------------------- Run workers in separate threads
 	print("#-------------- Starting workers...")
 	with tf.Session() as sess:
-		coord = tf.train.Coordinator()
-		sess.run(tf.global_variables_initializer())
 
-		worker_threads = []
-		for idx, worker in enumerate(workers):
-			worker_work = lambda: worker.work(sess, saver, coord)
-			t = threading.Thread(target=(worker_work), name="Thread"+str(idx))
-			# t = multiprocessing.Process(target=worker_work)
-			t.start()
-			time.sleep(0.5)
-			worker_threads.append(t)
-		coord.join(worker_threads)
-		print("Here")
+		if reload_model == True:
+			print("Reloading model...")
+			saver = tf.train.import_meta_graph(model_save_file+"/tf_model.meta")
+			saver.restore(sess, tf.train.latest_checkpoint(model_save_file))
+			all_vars = tf.get_collection('vars')
 
+			# test_urls = random.sample(url_set, 20000)
+			# pd.DataFrame.from_dict({'url':test_urls}).to_csv("data/random_url_sample.csv", index=False)
+			# test_urls = pd.read_csv("data/random_url_sample.csv")['url'].tolist()
+			test_urls = pd.read_csv("results/async_results/all_urls_revisit.csv", names=['url', 'v2', 'v3', 'v4'])['url'].tolist()
+			test_urls = random.sample(test_urls, 20000)
+			print("Testing representation...")
+
+			state_array = build_url_feature_matrix(count_vec, test_urls, embeddings, max_len)
+			v = sess.run(agent.v, feed_dict={agent.state: state_array}).reshape(-1).tolist()
+			# pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv("results/embedding_results/visited_value.csv", index=False)
+			pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv("results/async_results/predicted_value.csv", index=False)
+
+		else:
+			coord = tf.train.Coordinator()
+			sess.run(tf.global_variables_initializer())
+
+			worker_threads = []
+			for idx, worker in enumerate(workers):
+				worker_work = lambda: worker.work(sess, saver, coord)
+				t = threading.Thread(target=(worker_work), name="Thread"+str(idx))
+				# t = multiprocessing.Process(target=worker_work)
+				t.start()
+				time.sleep(0.5)
+				worker_threads.append(t)
+			coord.join(worker_threads)
 
 if __name__ == "__main__":
 	main()
