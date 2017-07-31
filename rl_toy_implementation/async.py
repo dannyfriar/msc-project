@@ -433,52 +433,48 @@ def main():
 
 	#---------------------- Initialize workers and TF graph
 	tf.reset_default_graph()
+	trainer = tf.train.AdamOptimizer(learning_rate=learning_rate)
+	master_net = QNetwork(filter_sizes, num_filters, embeddings, embedding_size,
+		max_len, gamma, 'global', None)
 
-	with tf.device("/cpu:0"):
-		trainer = tf.train.AdamOptimizer(learning_rate=learning_rate)
-		master_net = QNetwork(filter_sizes, num_filters, embeddings, embedding_size,
-			max_len, gamma, 'global', None)
+	if reload_model == True:
+		print("#----------- Reloading model...")
+		test_urls = pd.read_csv("results/async_results/all_urls_revisit.csv", names=['url', 'v2', 'v3', 'v4'])['url'].tolist()
+		test_urls = random.sample(test_urls, 20000)
 
-		num_workers = int(multiprocessing.cpu_count()/2) # Set workers to number of available CPU threads
-		workers = []
-		# Create worker classes
-		for i in range(num_workers):
-			workers.append(Worker(i, print_freq, cycle_freq, term_steps, num_steps, start_eps, end_eps,
-				eps_decay, gamma, max_len, embeddings, embedding_size, filter_sizes,
-				num_filters, url_list, count_vec, copy_steps, trainer, A_company, reward_urls,
-				model_path=model_save_file, model_save_steps=1000))
-		workers.append(Worker(num_workers+1, print_freq, cycle_freq, 10, num_steps, start_eps, end_eps,
-			eps_decay, gamma, max_len, embeddings, embedding_size, filter_sizes,
-			num_filters, url_list, count_vec, copy_steps, trainer, A_company, reward_urls,
-			model_path=model_save_file, model_save_steps=1000, eval_worker=True, results_file=all_urls_file))
-		saver = tf.train.Saver()
-
-	#---------------------- Run workers in separate threads
-	print("#-------------- Starting workers...")
-	with tf.Session() as sess:
-
-		if reload_model == True:
-			print("Reloading model...")
+		with tf.Session() as sess:
+			sess.run(tf.global_variables_initializer())
 			saver = tf.train.import_meta_graph(model_save_file+"/tf_model.meta")
 			saver.restore(sess, tf.train.latest_checkpoint(model_save_file))
-			all_vars = tf.get_collection('vars')
-
-			# test_urls = random.sample(url_set, 20000)
-			# pd.DataFrame.from_dict({'url':test_urls}).to_csv("data/random_url_sample.csv", index=False)
-			# test_urls = pd.read_csv("data/random_url_sample.csv")['url'].tolist()
-			test_urls = pd.read_csv("results/async_results/all_urls_revisit.csv", names=['url', 'v2', 'v3', 'v4'])['url'].tolist()
-			test_urls = random.sample(test_urls, 20000)
-			print("Testing representation...")
 
 			state_array = build_url_feature_matrix(count_vec, test_urls, embeddings, max_len)
-			v = sess.run(agent.v, feed_dict={agent.state: state_array}).reshape(-1).tolist()
-			# pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv("results/embedding_results/visited_value.csv", index=False)
-			pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv("results/async_results/predicted_value.csv", index=False)
+			v  = sess.run(master_net.v, feed_dict={master_net.state: state_array}).reshape(-1).tolist()
+			sess.close()
+		pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv("results/async_results/predicted_value.csv", index=False)
 
-		else:
+	else:
+		print("#-------------- Training model...")
+		with tf.device("/cpu:0"):
+			num_workers = int(multiprocessing.cpu_count()/2) # Set workers to number of available CPU threads
+			workers = []
+
+			# Create worker classes
+			for i in range(num_workers):
+				workers.append(Worker(i, print_freq, cycle_freq, term_steps, num_steps, start_eps, end_eps,
+					eps_decay, gamma, max_len, embeddings, embedding_size, filter_sizes,
+					num_filters, url_list, count_vec, copy_steps, trainer, A_company, reward_urls,
+					model_path=model_save_file, model_save_steps=1000))
+			workers.append(Worker(num_workers+1, print_freq, cycle_freq, 10, num_steps, start_eps, end_eps,
+				eps_decay, gamma, max_len, embeddings, embedding_size, filter_sizes,
+				num_filters, url_list, count_vec, copy_steps, trainer, A_company, reward_urls,
+				model_path=model_save_file, model_save_steps=1000, eval_worker=True, results_file=all_urls_file))
+			saver = tf.train.Saver()
+
+		#---------------------- Run workers in separate threads
+		print("#-------------- Starting workers...")
+		with tf.Session() as sess:
 			coord = tf.train.Coordinator()
 			sess.run(tf.global_variables_initializer())
-
 			worker_threads = []
 			for idx, worker in enumerate(workers):
 				worker_work = lambda: worker.work(sess, saver, coord)
