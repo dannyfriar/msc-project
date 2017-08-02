@@ -165,19 +165,3 @@ np.savetxt('../../anchor_embeddings_matrix.csv', embeddings, delimiter=',')
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
