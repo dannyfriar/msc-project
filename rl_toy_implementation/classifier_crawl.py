@@ -159,7 +159,6 @@ class CNNClassifier(object):
 		h_pool_flat = tf.reshape(h_pool, [-1, self.num_filters_total])
 		self.x_out = tf.nn.sigmoid(tf.matmul(h_pool_flat, W_out) + b_out)
 
-
 ##-----------------------------------------------------------
 ##-----------------------------------------------------------
 def main():
@@ -273,7 +272,6 @@ def main():
 				url = link_list[a]
 
 	sess.close()
-
 
 if __name__ == "__main__":
 	main()

@@ -161,9 +161,9 @@ class QNetwork(object):
 			embedded_state = tf.expand_dims(embedded_state, -1)
 			embedded_state = tf.nn.l2_normalize(embedded_state, 1)
 
-			W_out = tf.get_variable("W_out", [self.num_filters_total, 1], 
+			self.W_out = tf.get_variable("W_out", [self.num_filters_total, 1], 
 				initializer=tf.random_normal_initializer(mean=0.0, stddev=0.001))
-			b_out = tf.get_variable("b_out", [1], initializer=tf.constant_initializer(0.001))
+			self.b_out = tf.get_variable("b_out", [1], initializer=tf.constant_initializer(0.001))
 
 			# Convolutions for s
 			pooled_outputs = []
@@ -182,7 +182,7 @@ class QNetwork(object):
 			# Fully connected for s
 			h_pool = tf.concat(pooled_outputs, 3)
 			h_pool_flat = tf.reshape(h_pool, [-1, self.num_filters_total])
-			self.v = tf.nn.sigmoid(tf.matmul(h_pool_flat, W_out) + b_out)
+			self.v = tf.nn.sigmoid(tf.matmul(h_pool_flat, self.W_out) + self.b_out)
 
 
 			#---- Do for value function of next state
@@ -211,7 +211,7 @@ class QNetwork(object):
 			# Fully connected for s'
 			h_pool_next = tf.concat(pooled_outputs_next, 3)
 			h_pool_flat_next = tf.reshape(h_pool_next, [-1, self.num_filters_total])
-			self.v_next = tf.nn.sigmoid(tf.matmul(h_pool_flat_next, W_out) + b_out)
+			self.v_next = tf.nn.sigmoid(tf.matmul(h_pool_flat_next, self.W_out) + self.b_out)
 
 
 			#---- Loss function and gradients (only for training workers)
@@ -392,7 +392,7 @@ def main():
 	epsilon = start_eps
 	gamma = 0.75
 	learning_rate = 0.001
-	reload_model = True
+	reload_model = False
 
 	max_len = 50
 	embedding_size = 300
@@ -444,11 +444,11 @@ def main():
 			saver.restore(sess, tf.train.latest_checkpoint(model_save_file))
 			all_vars = tf.get_collection('vars')
 
-			print(tf.trainable_variables())
+			print(master_net.W_out.eval())
 			# state_array = build_url_feature_matrix(count_vec, test_urls, embeddings, max_len)
 			# v  = sess.run(master_net.v, feed_dict={master_net.state: state_array}).reshape(-1).tolist()
 			sess.close()
-		pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv("results/async_results/predicted_value.csv", index=False)
+		# pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv("results/async_results/predicted_value.csv", index=False)
 
 	else:
 		print("#-------------- Training model...")

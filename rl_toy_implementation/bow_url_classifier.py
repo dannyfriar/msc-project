@@ -34,7 +34,6 @@ def progress_bar(value, endvalue, bar_length=20):
     sys.stdout.write("\rPercent complete: [{0}] {1}%".format(arrow + spaces, int(round(percent * 100))))
     sys.stdout.flush()
 
-
 ##-----------------------------------------------------------
 ##-------- String Functions ---------------------------------
 def init_automaton(string_list):
@@ -89,7 +88,6 @@ class CNNClassifier(object):
 
 	def save_tf_model(self, tf_session, tf_saver):
 		tf_saver.save(tf_session, "/".join([self.tf_model_folder, "tf_model"]))
-
 
 ##-----------------------------------------------------------
 ##-----------------------------------------------------------
