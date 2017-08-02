@@ -444,7 +444,7 @@ def main():
 			saver.restore(sess, tf.train.latest_checkpoint(model_save_file))
 			all_vars = tf.get_collection('vars')
 
-			print(master_net.W_out.eval())
+			print(tf.trainable_variables())
 			# state_array = build_url_feature_matrix(count_vec, test_urls, embeddings, max_len)
 			# v  = sess.run(master_net.v, feed_dict={master_net.state: state_array}).reshape(-1).tolist()
 			sess.close()
