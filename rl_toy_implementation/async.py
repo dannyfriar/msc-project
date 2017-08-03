@@ -161,12 +161,17 @@ class QNetwork(object):
 			embedded_state = tf.expand_dims(embedded_state, -1)
 			embedded_state = tf.nn.l2_normalize(embedded_state, 1)
 
+			embedded_next_state = tf.nn.embedding_lookup(self.embeddings, self.next_state)
+			embedded_next_state = tf.expand_dims(embedded_next_state, -1)
+			embedded_next_state = tf.nn.l2_normalize(embedded_next_state, 1)
+
 			self.W_out = tf.get_variable("W_out", [self.num_filters_total, 1], 
 				initializer=tf.random_normal_initializer(mean=0.0, stddev=0.001))
 			self.b_out = tf.get_variable("b_out", [1], initializer=tf.constant_initializer(0.001))
 
-			# Convolutions for s
+			# Convolutions for s and s'
 			pooled_outputs = []
+			pooled_outputs_next = []
 			for i, filter_size in enumerate(self.filter_sizes):
 				with tf.name_scope("conv-maxpool-%s" % filter_size):
 					filter_shape = [filter_size, self.embedding_size, 1, self.num_filters]
@@ -179,39 +184,52 @@ class QNetwork(object):
 						strides=[1, 1, 1, 1], padding='VALID', name="pool")
 					pooled_outputs.append(pooled)
 
+					conv_next = tf.nn.conv2d(tf.cast(embedded_next_state, tf.float32), W, 
+						strides=[1, 1, 1, 1], padding="VALID", name="conv")
+					h_next = tf.nn.relu(tf.nn.bias_add(conv_next, b), name="relu")
+					pooled_next = tf.nn.max_pool(h_next, ksize=[1, self.max_len-filter_size+1, 1, 1],
+						strides=[1, 1, 1, 1], padding='VALID', name="pool")
+					pooled_outputs_next.append(pooled_next)
+
 			# Fully connected for s
 			h_pool = tf.concat(pooled_outputs, 3)
 			h_pool_flat = tf.reshape(h_pool, [-1, self.num_filters_total])
 			self.v = tf.nn.sigmoid(tf.matmul(h_pool_flat, self.W_out) + self.b_out)
 
-
-			#---- Do for value function of next state
-			embedded_next_state = tf.nn.embedding_lookup(self.embeddings, self.next_state)
-			embedded_next_state = tf.expand_dims(embedded_next_state, -1)
-			embedded_next_state = tf.nn.l2_normalize(embedded_next_state, 1)
-
-			# W_out_target = tf.get_variable("W_out_target", [self.num_filters_total, 1],
-				# initializer=tf.random_normal_initializer(mean=0.0, stddev=0.001))
-			# b_out_target = tf.get_variable("b_out_target", [1], initializer=tf.constant_initializer(0.001))
-
-			# Convolutions for s'
-			pooled_outputs_next = []
-			for i, filter_size in enumerate(self.filter_sizes):
-				with tf.name_scope("target-conv-maxpool-%s" % filter_size):
-					filter_shape = [filter_size, self.embedding_size, 1, self.num_filters]
-					W_target = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.01), name="W_target")
-					b_target = tf.Variable(tf.constant(0.01, shape=[self.num_filters]), name="b_target")
-					conv_next = tf.nn.conv2d(tf.cast(embedded_next_state, tf.float32), W_target, 
-						strides=[1, 1, 1, 1], padding="VALID", name="conv")
-					h_next = tf.nn.relu(tf.nn.bias_add(conv_next, b_target), name="relu")
-					pooled_next = tf.nn.max_pool(h_next, ksize=[1, self.max_len-filter_size+1, 1, 1],
-						strides=[1, 1, 1, 1], padding='VALID', name="pool")
-					pooled_outputs_next.append(pooled_next)
-
 			# Fully connected for s'
 			h_pool_next = tf.concat(pooled_outputs_next, 3)
 			h_pool_flat_next = tf.reshape(h_pool_next, [-1, self.num_filters_total])
 			self.v_next = tf.nn.sigmoid(tf.matmul(h_pool_flat_next, self.W_out) + self.b_out)
+
+			# #---- Do for value function of next state
+			# embedded_next_state = tf.nn.embedding_lookup(self.embeddings, self.next_state)
+			# embedded_next_state = tf.expand_dims(embedded_next_state, -1)
+			# embedded_next_state = tf.nn.l2_normalize(embedded_next_state, 1)
+
+			# # W_out_target = tf.get_variable("W_out_target", [self.num_filters_total, 1],
+			# 	# initializer=tf.random_normal_initializer(mean=0.0, stddev=0.001))
+			# # b_out_target = tf.get_variable("b_out_target", [1], initializer=tf.constant_initializer(0.001))
+
+			# # Convolutions for s'
+			# pooled_outputs_next = []
+			# for i, filter_size in enumerate(self.filter_sizes):
+			# 	with tf.name_scope("conv-maxpool-%s" % filter_size):
+			# 		filter_shape = [filter_size, self.embedding_size, 1, self.num_filters]
+			# 		# W_target = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.01), name="W_target")
+			# 		# b_target = tf.Variable(tf.constant(0.01, shape=[self.num_filters]), name="b_target")
+			# 		W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.01), name="W")
+			# 		b = tf.Variable(tf.constant(0.01, shape=[self.num_filters]), name="b")
+			# 		conv_next = tf.nn.conv2d(tf.cast(embedded_next_state, tf.float32), W, 
+			# 			strides=[1, 1, 1, 1], padding="VALID", name="conv")
+			# 		h_next = tf.nn.relu(tf.nn.bias_add(conv_next, b), name="relu")
+			# 		pooled_next = tf.nn.max_pool(h_next, ksize=[1, self.max_len-filter_size+1, 1, 1],
+			# 			strides=[1, 1, 1, 1], padding='VALID', name="pool")
+			# 		pooled_outputs_next.append(pooled_next)
+
+			# # Fully connected for s'
+			# h_pool_next = tf.concat(pooled_outputs_next, 3)
+			# h_pool_flat_next = tf.reshape(h_pool_next, [-1, self.num_filters_total])
+			# self.v_next = tf.nn.sigmoid(tf.matmul(h_pool_flat_next, self.W_out) + self.b_out)
 
 
 			#---- Loss function and gradients (only for training workers)
@@ -272,7 +290,7 @@ class Worker():
 		self.local_Q = QNetwork(self.filter_sizes, self.num_filters, self.embeddings, 
 			self.embedding_size, self.max_len, self.gamma,
 			self.name, self.trainer)
-		self.update_local_ops = update_target_graph('global',self.name)
+		self.update_local_ops = update_target_graph('global', self.name)
 
 		self.step_count = 0; self.pages_crawled = 0; self.total_reward = 0; 
 		self.terminal_states = 0; self.recent_urls = []
@@ -330,8 +348,13 @@ class Worker():
 									self.local_Q.state: state, self.local_Q.next_state: next_state_array, 
 									self.local_Q.reward: r, self.local_Q.is_terminal: is_terminal
 							}
-							loss, v_next  = sess.run([self.local_Q.loss, self.local_Q.v_next], feed_dict=train_dict)
+							_, grads, loss, v_next  = sess.run([self.local_Q.apply_grads, 
+								self.local_Q.gradients,
+								self.local_Q.loss, 
+								self.local_Q.v_next], 
+								feed_dict=train_dict)
 						v_next = v_next.reshape(-1)
+						sess.run(self.update_local_ops)
 
 						# Decay epsilon
 						if self.epsilon > self.end_eps:
@@ -432,17 +455,18 @@ def main():
 	trainer = tf.train.AdamOptimizer(learning_rate=learning_rate)
 	master_net = QNetwork(filter_sizes, num_filters, embeddings, embedding_size,
 		max_len, gamma, 'global', None)
+	saver = tf.train.Saver()
 
 	if reload_model == True:
 		print("#----------- Reloading model...")
-		test_urls = pd.read_csv("results/async_results/all_urls_revisit.csv", names=['url', 'v2', 'v3', 'v4'])['url'].tolist()
-		test_urls = random.sample(test_urls, 20000)
+		# test_urls = pd.read_csv("results/async_results/all_urls_revisit.csv", names=['url', 'v2', 'v3', 'v4'])['url'].tolist()
+		# test_urls = random.sample(test_urls, 20000)
 
 		with tf.Session() as sess:
-			sess.run(tf.global_variables_initializer())
-			saver = tf.train.import_meta_graph(model_save_file+"/tf_model.meta")
-			saver.restore(sess, tf.train.latest_checkpoint(model_save_file))
-			all_vars = tf.get_collection('vars')
+			ckpt = tf.train.get_checkpoint_state(model_save_file)
+			saver.restore(sess, ckpt.model_checkpoint_path)
+			# saver = tf.train.import_meta_graph(model_save_file+"/tf_model.meta")
+			# saver.restore(sess, tf.train.latest_checkpoint(model_save_file))
 
 			print(master_net.W_out.eval())
 			# state_array = build_url_feature_matrix(count_vec, test_urls, embeddings, max_len)
@@ -453,7 +477,8 @@ def main():
 	else:
 		print("#-------------- Training model...")
 		with tf.device("/cpu:0"):
-			num_workers = int(multiprocessing.cpu_count()/2) # Set workers to number of available CPU threads
+			# num_workers = int(multiprocessing.cpu_count()/2) # Set workers to number of available CPU threads
+			num_workers = 1
 			workers = []
 
 			# Create worker classes
@@ -466,7 +491,6 @@ def main():
 				eps_decay, gamma, max_len, embeddings, embedding_size, filter_sizes,
 				num_filters, url_list, count_vec, copy_steps, trainer, A_company, reward_urls,
 				model_path=model_save_file, model_save_steps=1000, eval_worker=True, results_file=all_urls_file))
-			saver = tf.train.Saver()
 
 		#---------------------- Run workers in separate threads
 		print("#-------------- Starting workers...")
@@ -482,6 +506,7 @@ def main():
 				time.sleep(0.5)
 				worker_threads.append(t)
 			coord.join(worker_threads)
+			saver.save(sess, "/".join([model_save_file, "tf_model"]))
 			sess.close()
 
 if __name__ == "__main__":
