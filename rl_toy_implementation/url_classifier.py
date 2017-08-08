@@ -148,7 +148,7 @@ def main():
 	num_filters = 4
 	batch_size = 1000
 	val_batch_size = 1000
-	n_batches = 2000
+	n_batches = 200
 	print_freq = 100
 	reload_model = True
 
@@ -201,7 +201,6 @@ def main():
 
 	with tf.Session() as sess:
 		sess.run(init)
-		input("Press enter to continue")
 
 		if reload_model == True:
 			print("Reloading model...")
@@ -233,7 +232,7 @@ def main():
 				loss = float(np.mean(loss))
 				loss_list.append(loss)
 
-				# progress_bar(batch_count, n_batches)
+				progress_bar(batch_count, n_batches)
 
 				if batch_count % print_freq == 0:
 					batch_val_df = validation.sample(n=val_batch_size)
