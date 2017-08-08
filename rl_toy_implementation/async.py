@@ -415,7 +415,7 @@ def main():
 	epsilon = start_eps
 	gamma = 0.75
 	learning_rate = 0.001
-	reload_model = False
+	reload_model = True
 
 	max_len = 50
 	embedding_size = 300
@@ -459,8 +459,8 @@ def main():
 
 	if reload_model == True:
 		print("#----------- Reloading model...")
-		# test_urls = pd.read_csv("results/async_results/all_urls_revisit.csv", names=['url', 'v2', 'v3', 'v4'])['url'].tolist()
-		# test_urls = random.sample(test_urls, 20000)
+		test_urls = pd.read_csv("results/async_results/all_urls_revisit.csv", names=['url', 'v2', 'v3', 'v4'])['url'].tolist()
+		test_urls = random.sample(test_urls, 20000)
 
 		with tf.Session() as sess:
 			ckpt = tf.train.get_checkpoint_state(model_save_file)
@@ -468,11 +468,10 @@ def main():
 			# saver = tf.train.import_meta_graph(model_save_file+"/tf_model.meta")
 			# saver.restore(sess, tf.train.latest_checkpoint(model_save_file))
 
-			print(master_net.W_out.eval())
-			# state_array = build_url_feature_matrix(count_vec, test_urls, embeddings, max_len)
-			# v  = sess.run(master_net.v, feed_dict={master_net.state: state_array}).reshape(-1).tolist()
+			state_array = build_url_feature_matrix(count_vec, test_urls, embeddings, max_len)
+			v  = sess.run(master_net.v, feed_dict={master_net.state: state_array}).reshape(-1).tolist()
 			sess.close()
-		# pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv("results/async_results/predicted_value.csv", index=False)
+		pd.DataFrame.from_dict({'url':test_urls, 'value':v}).to_csv("results/async_results/predicted_value.csv", index=False)
 
 	else:
 		print("#-------------- Training model...")
