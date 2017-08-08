@@ -120,8 +120,8 @@ def main():
 	recent_urls = []; reward_pages = []
 	reward_domain_set = set()
 
-	if os.path.isfile(all_urls_file):
-		os.remove(all_urls_file)
+	# if os.path.isfile(all_urls_file):
+	# 	os.remove(all_urls_file)
 
 	while num_steps < number_crawls:
 		url = get_random_url(url_list, recent_urls)
@@ -145,9 +145,10 @@ def main():
 			r, reward_url_idx = get_reward(url, A_company, reward_urls)
 			pages_crawled += 1
 			total_reward += r
-			with open(all_urls_file, "a") as csv_file:
-				writer = csv.writer(csv_file, delimiter=',')
-				writer.writerow([url, r])
+			# with open(all_urls_file, "a") as csv_file:
+			# 	writer = csv.writer(csv_file, delimiter=',')
+			# 	writer.writerow([url, r])
+
 			if r > 0:
 				if args.run == "no-revisit":
 					reward_pages.append(url)
@@ -158,6 +159,7 @@ def main():
 				break
 
 			# List of next possible URLs 
+			print(url)
 			link_list = get_list_of_links(url)
 			link_list = set(link_list).intersection(url_set)
 			link_list = list(link_list - set(recent_urls))
