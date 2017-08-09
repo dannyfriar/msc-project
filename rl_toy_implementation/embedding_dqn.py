@@ -319,9 +319,10 @@ def main():
 		else:
 			##------------------ Run and train crawler agent -----------------------
 			print("Training DQN agent...")
-			if os.path.isfile(all_urls_file):
-				os.remove(all_urls_file)
+			# if os.path.isfile(all_urls_file):
+				# os.remove(all_urls_file)
 
+			t0 = time.time()
 			while step_count < num_steps:
 				url = get_random_url(url_list, recent_urls)
 				steps_without_terminating = 0
@@ -377,13 +378,16 @@ def main():
 						print("\nCrawled {} pages, total reward = {}, # terminal states = {}, remaining rewards = {}"\
 						.format(pages_crawled, total_reward, terminal_states, len(reward_urls)))
 
-					with open(all_urls_file, "a") as csv_file:
-						writer = csv.writer(csv_file, delimiter=',')
-						writer.writerow([url, r, is_terminal, float(loss)])
+					# with open(all_urls_file, "a") as csv_file:
+					# 	writer = csv.writer(csv_file, delimiter=',')
+					# 	writer.writerow([url, r, is_terminal, float(loss)])
 
 					# Decay epsilon
 					if epsilon > end_eps:
 						epsilon = epsilon - eps_decay
+
+					if pages_crawled >= 5000:
+						print("Time elapsed = {}".format((time.time()-t0) / pages_crawled))
 
 					# Choose next URL (and check for looping)
 					if is_terminal == 1:
