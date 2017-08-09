@@ -148,7 +148,7 @@ def main():
 	num_filters = 4
 	batch_size = 1000
 	val_batch_size = 1000
-	n_batches = 250
+	n_batches = 200
 	print_freq = 100
 	reload_model = True
 
