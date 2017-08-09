@@ -112,66 +112,69 @@ def main():
 	##-------------------- Random crawling
 	cycle_freq = 50
 	number_crawls = 200000
-	print_freq = 1000
+	print_freq = 100000
 	term_steps = 50
+	n_runs = 5
 
-	# To store data
-	pages_crawled = 0; total_reward = 0; terminal_states = 0; num_steps = 0
-	recent_urls = []; reward_pages = []
-	reward_domain_set = set()
+	if os.path.isfile(all_urls_file):
+		os.remove(all_urls_file)
 
-	# if os.path.isfile(all_urls_file):
-	# 	os.remove(all_urls_file)
+	for run in range(n_runs):
+		print("#---------- Run {}".format(run+1))
 
-	while num_steps < number_crawls:
-		url = get_random_url(url_list, recent_urls)
-		steps_without_terminating = 0
-
+		# To store data
+		pages_crawled = 0; total_reward = 0; terminal_states = 0; num_steps = 0
+		recent_urls = []; reward_pages = []
+		reward_domain_set = set()
+		
 		while num_steps < number_crawls:
-			num_steps += 1
+			url = get_random_url(url_list, recent_urls)
+			steps_without_terminating = 0
 
-			# Track progress
-			progress_bar(num_steps, number_crawls)
-			if num_steps % print_freq == 0:
-				print("\nCrawled {} pages, total reward = {}, # terminal states = {}, remaining rewards = {}"\
-					.format(pages_crawled, total_reward, terminal_states, len(reward_urls)))
+			while num_steps < number_crawls:
+				num_steps += 1
 
-			# Keep track of recent URLs (to avoid loops)
-			recent_urls.append(url)
-			if len(recent_urls) > cycle_freq:
-				recent_urls = recent_urls[-cycle_freq:]
+				# Track progress
+				progress_bar(num_steps, number_crawls)
+				if num_steps % print_freq == 0:
+					print("\nCrawled {} pages, total reward = {}, # terminal states = {}, remaining rewards = {}"\
+						.format(pages_crawled, total_reward, terminal_states, len(reward_urls)))
 
-			# Get rewards
-			r, reward_url_idx = get_reward(url, A_company, reward_urls)
-			pages_crawled += 1
-			total_reward += r
-			# with open(all_urls_file, "a") as csv_file:
-			# 	writer = csv.writer(csv_file, delimiter=',')
-			# 	writer.writerow([url, r])
+				# Keep track of recent URLs (to avoid loops)
+				recent_urls.append(url)
+				if len(recent_urls) > cycle_freq:
+					recent_urls = recent_urls[-cycle_freq:]
 
-			if r > 0:
-				if args.run == "no-revisit":
-					reward_pages.append(url)
-					reward_domain_set.update(lookup_domain_name(links_df, reward_urls[reward_url_idx]))
-					reward_urls.pop(reward_url_idx)
-					A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
-					A_company.make_automaton()
-				break
+				# Get rewards
+				r, reward_url_idx = get_reward(url, A_company, reward_urls)
+				pages_crawled += 1
+				total_reward += r
+				with open(all_urls_file, "a") as csv_file:
+					writer = csv.writer(csv_file, delimiter=',')
+					writer.writerow([url, r, run])
 
-			# List of next possible URLs 
-			print(url)
-			link_list = get_list_of_links(url)
-			link_list = set(link_list).intersection(url_set)
-			link_list = list(link_list - set(recent_urls))
+				if r > 0:
+					if args.run == "no-revisit":
+						reward_pages.append(url)
+						reward_domain_set.update(lookup_domain_name(links_df, reward_urls[reward_url_idx]))
+						reward_urls.pop(reward_url_idx)
+						A_company = init_automaton(reward_urls)  # Aho-corasick automaton for companies
+						A_company.make_automaton()
+					break
 
-			# Choose next URL from list
-			if len(link_list) == 0:
-				terminal_states += 1
-				break
-			steps_without_terminating += 1
-			if steps_without_terminating >= term_steps:
-				break
-			url = random.choice(link_list)
+				# List of next possible URLs 
+				link_list = get_list_of_links(url)
+				link_list = set(link_list).intersection(url_set)
+				link_list = list(link_list - set(recent_urls))
+
+				# Choose next URL from list
+				if len(link_list) == 0:
+					terminal_states += 1
+					break
+				steps_without_terminating += 1
+				if steps_without_terminating >= term_steps:
+					break
+				url = random.choice(link_list)
 
 
 if __name__ == "__main__":

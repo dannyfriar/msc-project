@@ -306,6 +306,7 @@ class Worker():
 		with sess.as_default(), sess.graph.as_default():
 			while not coord.should_stop():
 
+				t0 = time.time()
 				while self.step_count < self.num_steps:
 					url = get_random_url(self.url_list, self.recent_urls)
 					self.steps_without_terminating = 0
@@ -362,7 +363,7 @@ class Worker():
 
 						# Print output if eval worker
 						if self.eval_worker == True:
-							self.write_results(url, r, is_terminal)
+							# self.write_results(url, r, is_terminal)
 							self.update_progress()
 
 						# Choose next URL (and check for looping)
@@ -459,14 +460,12 @@ def main():
 
 	if reload_model == True:
 		print("#----------- Reloading model...")
-		test_urls = pd.read_csv("results/async_results/all_urls_revisit.csv", names=['url', 'v2', 'v3', 'v4'])['url'].tolist()
-		test_urls = random.sample(test_urls, 20000)
+		# test_urls = pd.read_csv("results/async_results/all_urls_revisit.csv", names=['url', 'v2', 'v3', 'v4'])['url'].tolist()
+		test_urls = random.sample(url_list, 20000)
 
 		with tf.Session() as sess:
 			ckpt = tf.train.get_checkpoint_state(model_save_file)
 			saver.restore(sess, ckpt.model_checkpoint_path)
-			# saver = tf.train.import_meta_graph(model_save_file+"/tf_model.meta")
-			# saver.restore(sess, tf.train.latest_checkpoint(model_save_file))
 
 			state_array = build_url_feature_matrix(count_vec, test_urls, embeddings, max_len)
 			v  = sess.run(master_net.v, feed_dict={master_net.state: state_array}).reshape(-1).tolist()
