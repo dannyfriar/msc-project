@@ -148,7 +148,7 @@ class CrawlerAgent(object):
 def main():
 	##-------------------- Parameters
 	cycle_freq = 50
-	term_steps = 50
+	term_steps = 40
 	num_steps = 200000  # no. crawled pages before stopping
 	print_freq = 100000
 	start_eps = 0.1
@@ -197,13 +197,13 @@ def main():
 		test_value_files = RESULTS_FOLDER + "test_value_revisit.csv"
 
 	##------------------- Initialize Crawler Agent and TF graph/session
+	if os.path.isfile(all_urls_file):
+		os.remove(all_urls_file)
+
 	for run in range(n_runs):
 		print("#------------- Run {}".format(run+1))
-
 		step_count = 0; pages_crawled = 0; total_reward = 0; terminal_states = 0
 		recent_urls = []; reward_pages = []; found_rewards = []; reward_domain_set = set()
-		if os.path.isfile(all_urls_file):
-			os.remove(all_urls_file)
 
 		tf.reset_default_graph()
 		agent = CrawlerAgent(weights_shape, model_save_file, gamma=gamma, learning_rate=learning_rate)
