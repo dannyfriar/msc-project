@@ -166,11 +166,12 @@ def main():
 	cycle_freq = 50
 	term_steps = 10
 	num_steps = 200000  # no. crawled pages before stopping
-	print_freq = 1000
+	print_freq = 100000
 	max_len = 50
 	embedding_size = 300
 	filter_sizes = [1, 2, 3, 4]
 	num_filters = 4
+	n_runs = 5
 
 	##-------------------- Read in data
 	print("Loading Data...")
@@ -201,81 +202,83 @@ def main():
 	model_save_file = MODEL_FOLDER + "classifier"
 
 	##------------------- Initialize TF graph/session
-	step_count = 0; pages_crawled = 0; total_reward = 0; terminal_states = 0
-	recent_urls = []; reward_pages = []; found_rewards = []; reward_domain_set = set()
+	if os.path.isfile(all_urls_file):
+		os.remove(all_urls_file)
 
-	tf.reset_default_graph()
-	agent = CNNClassifier(filter_sizes, num_filters, embeddings, embedding_size, max_len, model_save_file)
-	init = tf.global_variables_initializer()
-	saver = tf.train.Saver()
+	for run in range(n_runs):
+		print("#------------- Run {}".format(run+1))
+		step_count = 0; pages_crawled = 0; total_reward = 0; terminal_states = 0
+		recent_urls = []; reward_pages = []; found_rewards = []; reward_domain_set = set()
 
-	with tf.Session() as sess:
-		sess.run(init)
-		if os.path.isfile(all_urls_file):
-			os.remove(all_urls_file)
+		tf.reset_default_graph()
+		agent = CNNClassifier(filter_sizes, num_filters, embeddings, embedding_size, max_len, model_save_file)
+		init = tf.global_variables_initializer()
+		saver = tf.train.Saver()
 
-		print("Reloading model...")
-		saver = tf.train.import_meta_graph(model_save_file+"/tf_model.meta")
-		saver.restore(sess, tf.train.latest_checkpoint(model_save_file))
-		all_vars = tf.get_collection('vars')
+		with tf.Session() as sess:
+			sess.run(init)
+			print("Reloading model...")
+			saver = tf.train.import_meta_graph(model_save_file+"/tf_model.meta")
+			saver.restore(sess, tf.train.latest_checkpoint(model_save_file))
+			all_vars = tf.get_collection('vars')
 
-		t0 = time.time()
-		while step_count < num_steps:
-			url = get_random_url(url_list, recent_urls)
-			steps_without_terminating = 0
-
+			t0 = time.time()
 			while step_count < num_steps:
-				step_count += 1
+				url = get_random_url(url_list, recent_urls)
+				steps_without_terminating = 0
 
-				# Keep track of recent URLs (to avoid loops)
-				recent_urls.append(url)
-				if len(recent_urls) > cycle_freq:
-					recent_urls = recent_urls[-cycle_freq:]
+				while step_count < num_steps:
+					step_count += 1
 
-				# Get rewards and remove domain if reward
-				r, reward_url_idx = get_reward(url, A_company, reward_urls)
-				pages_crawled += 1
-				total_reward += r
+					# Keep track of recent URLs (to avoid loops)
+					recent_urls.append(url)
+					if len(recent_urls) > cycle_freq:
+						recent_urls = recent_urls[-cycle_freq:]
 
-				link_list = get_list_of_links(url)
-				link_list = set(link_list).intersection(url_set)
-				link_list = list(link_list - set(recent_urls))
+					# Get rewards and remove domain if reward
+					r, reward_url_idx = get_reward(url, A_company, reward_urls)
+					pages_crawled += 1
+					total_reward += r
 
-				# Check if terminal state
-				if r > 0 or len(link_list) == 0:
-					terminal_states += 1
-					is_terminal = 1
-					next_state_array = np.zeros(shape=(1, max_len))  # doesn't matter what this is
-				else:
-					is_terminal = 0
-					steps_without_terminating += 1
-					next_state_array = build_url_feature_matrix(count_vec, link_list, embeddings, max_len)
+					link_list = get_list_of_links(url)
+					link_list = set(link_list).intersection(url_set)
+					link_list = list(link_list - set(recent_urls))
 
-				v_next = sess.run(agent.x_out, feed_dict={agent.x: next_state_array})
-				v_next = v_next.reshape(-1)
+					# Check if terminal state
+					if r > 0 or len(link_list) == 0:
+						terminal_states += 1
+						is_terminal = 1
+						next_state_array = np.zeros(shape=(1, max_len))  # doesn't matter what this is
+					else:
+						is_terminal = 0
+						steps_without_terminating += 1
+						next_state_array = build_url_feature_matrix(count_vec, link_list, embeddings, max_len)
 
-				# Print progress + save transitions
-				progress_bar(step_count+1, num_steps)
-				if step_count % print_freq == 0:
-					print("\nCrawled {} pages, total reward = {}, # terminal states = {}, remaining rewards = {}"\
-					.format(pages_crawled, total_reward, terminal_states, len(reward_urls)))
+					v_next = sess.run(agent.x_out, feed_dict={agent.x: next_state_array})
+					v_next = v_next.reshape(-1)
 
-				# with open(all_urls_file, "a") as csv_file:
-				# 	writer = csv.writer(csv_file, delimiter=',')
-				# 	writer.writerow([url, r, is_terminal])
+					# Print progress + save transitions
+					progress_bar(step_count+1, num_steps)
+					if step_count % print_freq == 0:
+						print("\nCrawled {} pages, total reward = {}, # terminal states = {}, remaining rewards = {}"\
+						.format(pages_crawled, total_reward, terminal_states, len(reward_urls)))
 
-				if pages_crawled >= 5000:
-					print("Time elapsed = {}".format((time.time()-t0)/pages_crawled))
+					with open(all_urls_file, "a") as csv_file:
+						writer = csv.writer(csv_file, delimiter=',')
+						writer.writerow([url, r, is_terminal, run])
 
-				# Choose next URL (and check for looping)
-				if is_terminal == 1:
-					break
-				if steps_without_terminating >= term_steps:  # to prevent cycles
-					break
-				a = np.argmax(v_next)
-				url = link_list[a]
+					if pages_crawled >= 5000:
+						print("Time elapsed = {}".format((time.time()-t0)/pages_crawled))
 
-	sess.close()
+					# Choose next URL (and check for looping)
+					if is_terminal == 1:
+						break
+					if steps_without_terminating >= term_steps:  # to prevent cycles
+						break
+					a = np.argmax(v_next)
+					url = link_list[a]
+
+		sess.close()
 
 if __name__ == "__main__":
 	main()
