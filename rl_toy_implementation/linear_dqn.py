@@ -158,7 +158,7 @@ def main():
 	gamma = 0.75
 	learning_rate = 0.001
 	reload_model = False
-	n_runs = 5
+	n_runs = 1
 
 	##-------------------- Read in data
 	links_df = pd.read_csv("new_data/links_dataframe.csv")
