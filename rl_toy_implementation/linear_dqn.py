@@ -148,7 +148,7 @@ class CrawlerAgent(object):
 def main():
 	##-------------------- Parameters
 	cycle_freq = 50
-	term_steps = 50
+	term_steps = 60
 	num_steps = 200000  # no. crawled pages before stopping
 	print_freq = 100000
 	start_eps = 0.1
@@ -158,7 +158,7 @@ def main():
 	gamma = 0.75
 	learning_rate = 0.001
 	reload_model = False
-	n_runs = 1
+	n_runs = 5
 
 	##-------------------- Read in data
 	links_df = pd.read_csv("new_data/links_dataframe.csv")
