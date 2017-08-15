@@ -94,6 +94,7 @@ def main():
 	links_df = links_df[~links_df['domain'].isin(rm_list)]
 	reward_urls = links_df[links_df['type']=='company-url']['url']
 	reward_urls = [l.replace("www.", "") for l in reward_urls]
+	reward_urls = [l for l in reward_urls if ".uk" in l]
 	A_company = init_automaton(reward_urls)  # Aho-corasick automaton
 	A_company.make_automaton()
 

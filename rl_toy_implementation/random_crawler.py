@@ -98,6 +98,7 @@ def main():
 	links_df = links_df[~links_df['domain'].isin(rm_list)]
 	reward_urls = links_df[links_df['type']=='company-url']['url']
 	reward_urls = [l.replace("www.", "") for l in reward_urls]
+	reward_urls = [l for l in reward_urls if l not in rm_list]
 	A_company = init_automaton(reward_urls)  # Aho-corasick automaton
 	A_company.make_automaton()
 	url_set = set(links_df['url'].tolist())
@@ -112,7 +113,7 @@ def main():
 	##-------------------- Random crawling
 	cycle_freq = 50
 	number_crawls = 200000
-	print_freq = 1000
+	print_freq = 10000
 	term_steps = 50
 
 	# To store data

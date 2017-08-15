@@ -248,7 +248,7 @@ def main():
 	gamma = 0.75
 	learning_rate = 0.001
 	reload_model = False
-	n_runs = 1
+	n_runs = 5
 
 	max_len = 50
 	embedding_size = 300
@@ -285,11 +285,10 @@ def main():
 	test_value_files = RESULTS_FOLDER + "test_value_revisit.csv"
 
 	##------------------- Initialize Crawler Agent and TF graph/session
-	# if os.path.isfile(all_urls_file):
-		# os.remove(all_urls_file)
+	if os.path.isfile(all_urls_file):
+		os.remove(all_urls_file)
 
 	for run in range(n_runs):
-	# for run in range(4, 6):
 		print("#------------- Run {}".format(run+1))
 		step_count = 0; pages_crawled = 0; total_reward = 0; terminal_states = 0
 		recent_urls = []; reward_pages = []; found_rewards = []; reward_domain_set = set()

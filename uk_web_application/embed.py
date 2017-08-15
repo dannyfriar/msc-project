@@ -232,8 +232,6 @@ class CrawlerAgent(object):
 		tf_saver.save(tf_session, "/".join([self.tf_model_folder, "tf_model"]))
 
 
-
-
 ##-----------------------------------------------------------
 ##-----------------------------------------------------------
 def main():
@@ -242,15 +240,13 @@ def main():
 	term_steps = 20
 	copy_steps = 100
 	num_steps = 200000  # no. crawled pages before stopping
-	print_freq = 100000
+	print_freq = 1000
 	start_eps = 0.1
 	end_eps = 0
 	eps_decay = 2 / num_steps
 	epsilon = start_eps
 	gamma = 0.75
 	learning_rate = 0.001
-	reload_model = False
-	n_runs = 5
 
 	max_len = 50
 	embedding_size = 300
@@ -258,6 +254,7 @@ def main():
 	num_filters = 4
 
 	##-------------------- Read in data
+	print("#-------- Reading data...")
 	links_df = pd.read_csv("../rl_toy_implementation/new_data/links_dataframe.csv")
 	rm_list = ['aarp.org', 'akc.org', 'alcon.com', 'lincoln.com', 'orlakiely.com', 
 	'red.com', 'ef.com', 'ozarksfirst.com']  # remove mis-labelled reward URLs
@@ -265,9 +262,13 @@ def main():
 	links_df = links_df[~links_df['domain'].isin(rm_list)]
 	reward_urls = links_df[links_df['type']=='company-url']['url']
 	reward_urls = [l.replace("www.", "") for l in reward_urls]
-	reward_urls = [l for l in reward_urls if l not in rm_list]
+	reward_urls = [l for l in reward_urls if l not in rm_list if ".uk" in l]
 	A_company = init_automaton(reward_urls)  # Aho-corasick automaton
 	A_company.make_automaton()
+
+	# start_url_list = links_df[links_df['type']=='first-hop-link']['url'].tolist()
+	start_url_list = links_df['url'].tolist()
+	start_url_list = [l for l in start_url_list if ".uk" in l]
 
 	# Embeddings matrix
 	embeddings = np.loadtxt('../../url_embeddings_matrix.csv', delimiter=',')
@@ -281,7 +282,6 @@ def main():
 	# File locations
 	all_urls_file = RESULTS_FOLDER + "all_urls.csv"
 	model_save_file = MODEL_FOLDER + "embed"
-
 
 	##------------------- Initialize Crawler Agent and TF graph/session
 	step_count = 0; pages_crawled = 0; total_reward = 0; terminal_states = 0
@@ -301,7 +301,7 @@ def main():
 		sess.run(init)
 
 		while step_count < num_steps:
-			# url = get_random_url(url_list, recent_urls)
+			url = get_random_url(start_url_list, recent_urls)
 			steps_without_terminating = 0
 
 			while step_count < num_steps:
@@ -322,8 +322,8 @@ def main():
 				# Feature representation of current page (state) and links in page
 				state = build_url_feature_matrix(count_vec, [url], embeddings, max_len)
 				link_list = get_list_of_links(url)
-				link_list = set(link_list).intersection(url_set)
-				link_list = list(link_list - set(recent_urls))
+				link_list = [l for l in link_list if ".uk" in l]
+				link_list = list(set(link_list) - set(recent_urls))
 
 				# Check if terminal state
 				if r > 0 or len(link_list) == 0:
@@ -355,7 +355,7 @@ def main():
 
 				with open(all_urls_file, "a") as csv_file:
 					writer = csv.writer(csv_file, delimiter=',')
-					writer.writerow([url, r, is_terminal, float(loss), run])
+					writer.writerow([url, r, is_terminal, float(loss)])
 
 				# Decay epsilon
 				if epsilon > end_eps:
@@ -372,29 +372,10 @@ def main():
 
 		print("\nCrawled {} pages, total reward = {}, # terminal states = {}"\
 			.format(pages_crawled, total_reward, terminal_states))
-		# agent.save_tf_model(sess, saver)
+		agent.save_tf_model(sess, saver)
 		sess.close()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
 if __name__ == "__main__":
 	main()
-
-
-

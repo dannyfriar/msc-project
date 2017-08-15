@@ -99,11 +99,11 @@ def main():
 	embedding_size = 300
 	filter_sizes = [1, 2, 3, 4]
 	num_filters = 4
-	batch_size = 1000
+	batch_size = 1000	
 	val_batch_size = 1000
 	n_batches = 2000
 	print_freq = 100
-	reload_model = True
+	reload_model = False
 
 	##-------------------- Read in data
 	print("Loading Data...")
