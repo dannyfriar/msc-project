@@ -146,17 +146,23 @@ def main():
 				r, reward_url_idx = get_reward(url, A_company, reward_urls)
 				pages_crawled += 1
 				total_reward += r
-				with open(all_urls_file, "a") as csv_file:
-					writer = csv.writer(csv_file, delimiter=',')
-					writer.writerow([url, r])
-
-				if r > 0:
-					break
 
 				# List of next possible URLs 
 				link_list = get_list_of_links(url)
 				link_list = [l for l in link_list if ".uk" in l]
 				link_list = list(set(link_list) - set(recent_urls))
+				if len(link_list) == 0:
+					is_terminal = 1
+				else:
+					is_terminal = 0
+
+
+				with open(all_urls_file, "a") as csv_file:
+					writer = csv.writer(csv_file, delimiter=',')
+					writer.writerow([url, r, is_terminal])
+
+				if r > 0 or is_terminal == 1:
+					break
 
 				# Choose next URL from list
 				if len(link_list) == 0:
