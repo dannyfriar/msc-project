@@ -101,6 +101,7 @@ def main():
 	# start_url_list = links_df[links_df['type']=='first-hop-link']['url'].tolist()
 	start_url_list = links_df['url'].tolist()
 	start_url_list = [l for l in start_url_list if ".uk" in l]
+	print(len(start_url_list))
 
 	# Set paths
 	all_urls_file = RESULTS_FOLDER + "all_urls.csv"
@@ -110,10 +111,12 @@ def main():
 	number_crawls = 200000
 	print_freq = 100000
 	term_steps = 50
-	n_runs = 4
+	n_runs = 1
 
-	# if os.path.isfile(all_urls_file):
-		# os.remove(all_urls_file)
+	# input("Press enter to continue...")
+
+	if os.path.isfile(all_urls_file):
+		os.remove(all_urls_file)
 
 	for run in range(n_runs):
 		print("#--------------- Run {} of {}".format(run+1, n_runs))
@@ -145,7 +148,7 @@ def main():
 				total_reward += r
 				with open(all_urls_file, "a") as csv_file:
 					writer = csv.writer(csv_file, delimiter=',')
-					writer.writerow([url, r, run])
+					writer.writerow([url, r])
 
 				if r > 0:
 					break
