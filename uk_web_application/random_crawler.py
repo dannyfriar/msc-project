@@ -95,6 +95,7 @@ def main():
 	reward_urls = pd.read_csv("../rl_toy_implementation/new_data/company_urls.csv")
 	reward_urls = [l.replace("www.", "") for l in reward_urls['url'].tolist()]
 	reward_urls = [l for l in reward_urls if ".uk" in l]
+	print(len(reward_urls))
 	A_company = init_automaton(reward_urls)  # Aho-corasick automaton
 	A_company.make_automaton()
 
