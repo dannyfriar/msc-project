@@ -91,3 +91,24 @@ print("Median length = {}".format(np.median(np.array(link_list_len))))
 print("Stdev length = {}".format(np.std(np.array(link_list_len))))
 pd.DataFrame.from_dict({'num_links': link_list_len}).to_csv('test_results/uk_links.csv')
 
+
+# #---------------------- Check if page text is available
+# count = 0; uk_url_list = []
+# env2 = lmdb.open("/nvme/uk_web", readonly=True)
+# with env2.begin() as txn:
+# 	cursor = txn.cursor()
+# 	for key, value in cursor:
+# 		uk_url_list.append(key.decode('utf-8'))
+# 		count += 1
+# 		if count >= 1000:
+# 			break
+
+# url = random.choice(uk_url_list)
+# print(s2.get_page(url))
+
+
+
+
+
+
+

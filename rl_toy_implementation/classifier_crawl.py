@@ -164,7 +164,7 @@ class CNNClassifier(object):
 def main():
 	##-------------------- Parameters
 	cycle_freq = 50
-	term_steps = 10
+	term_steps = 50
 	num_steps = 200000  # no. crawled pages before stopping
 	print_freq = 100000
 	max_len = 50

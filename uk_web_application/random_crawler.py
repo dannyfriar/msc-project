@@ -108,8 +108,8 @@ def main():
 	##-------------------- Random crawling
 	cycle_freq = 50
 	number_crawls = 200000
-	print_freq = 1000
-	term_steps = 20
+	print_freq = 10000
+	term_steps = 50
 
 	# To store data
 	pages_crawled = 0; total_reward = 0; terminal_states = 0; num_steps = 0

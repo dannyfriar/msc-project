@@ -416,7 +416,7 @@ def main():
 	epsilon = start_eps
 	gamma = 0.75
 	learning_rate = 0.001
-	reload_model = True
+	reload_model = False
 
 	max_len = 50
 	embedding_size = 300
@@ -475,8 +475,8 @@ def main():
 	else:
 		print("#-------------- Training model...")
 		with tf.device("/cpu:0"):
-			# num_workers = int(multiprocessing.cpu_count()/2) # Set workers to number of available CPU threads
-			num_workers = 1
+			num_workers = int(multiprocessing.cpu_count()/2) # Set workers to number of available CPU threads
+			# num_workers = 10
 			workers = []
 
 			# Create worker classes

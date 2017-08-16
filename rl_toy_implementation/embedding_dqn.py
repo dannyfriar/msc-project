@@ -237,7 +237,7 @@ class CrawlerAgent(object):
 def main():
 	##-------------------- Parameters
 	cycle_freq = 50
-	term_steps = 18
+	term_steps = 50
 	copy_steps = 100
 	num_steps = 200000  # no. crawled pages before stopping
 	print_freq = 100000
