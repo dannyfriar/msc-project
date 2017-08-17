@@ -20,6 +20,14 @@ def get_list_of_links(url, s):
 		if page is None:
 			page = s.get_page("www."+url+"/")
 		if page is None:
+			page = s.get_page("http://www."+url)
+		if page is None:
+			page = s.get_page("http://www."+url+"/")
+		if page is None:
+			page = s.get_page("https://www."+url)
+		if page is None:
+			page = s.get_page("https://www."+url+"/")
+		if page is None:
 			return []
 	except (UnicodeError, ValueError):
 		return []
@@ -64,32 +72,32 @@ sample_size = 10000
 # pd.DataFrame.from_dict({'num_links': link_list_len}).to_csv('test_results/rl_web_graph_links.csv')
 
 
-#-------------------------- UK web case
-def get_num_uk_links(url, s):
-	link_list = get_list_of_links(url, s)
-	link_list = [l for l in link_list if "uk" in l]
-	return len(link_list)
+# #-------------------------- UK web case
+# def get_num_uk_links(url, s):
+# 	link_list = get_list_of_links(url, s)
+# 	link_list = [l for l in link_list if "uk" in l]
+# 	return len(link_list)
 
-# Random sample of URLs from the database
-print("#-------- Running for UK web...")
-uk_url_list = []
+# # Random sample of URLs from the database
+# print("#-------- Running for UK web...")
+# uk_url_list = []
 
-count = 0
-env2 = lmdb.open("/nvme/uk_web/", readonly=True);
-with env2.begin() as txn:
-	cursor = txn.cursor();
-	for key, value in cursor:
-		count += 1
-		uk_url_list.append(key.decode('utf-8'))
-		if count >= 100000:
-			break
+# count = 0
+# env2 = lmdb.open("/nvme/uk_web/", readonly=True);
+# with env2.begin() as txn:
+# 	cursor = txn.cursor();
+# 	for key, value in cursor:
+# 		count += 1
+# 		uk_url_list.append(key.decode('utf-8'))
+# 		if count >= 100000:
+# 			break
 
-uk_url_list = random.sample(uk_url_list, sample_size)
-link_list_len = [get_num_uk_links(url, s2) for url in uk_url_list]
-print("Mean length = {}".format(np.mean(np.array(link_list_len))))
-print("Median length = {}".format(np.median(np.array(link_list_len))))
-print("Stdev length = {}".format(np.std(np.array(link_list_len))))
-pd.DataFrame.from_dict({'num_links': link_list_len}).to_csv('test_results/uk_links.csv')
+# uk_url_list = random.sample(uk_url_list, sample_size)
+# link_list_len = [get_num_uk_links(url, s2) for url in uk_url_list]
+# print("Mean length = {}".format(np.mean(np.array(link_list_len))))
+# print("Median length = {}".format(np.median(np.array(link_list_len))))
+# print("Stdev length = {}".format(np.std(np.array(link_list_len))))
+# pd.DataFrame.from_dict({'num_links': link_list_len}).to_csv('test_results/uk_links.csv')
 
 
 # #---------------------- Check if page text is available
@@ -107,6 +115,9 @@ pd.DataFrame.from_dict({'num_links': link_list_len}).to_csv('test_results/uk_lin
 # print(s2.get_page(url))
 
 
+url = 'treasuretrails.co.uk'
+print(s2.get_page('http://www.bottonline.co.uk/'))
+print(get_list_of_links('www.bottonline.co.uk', s2))
 
 
 

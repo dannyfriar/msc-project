@@ -56,6 +56,14 @@ def get_list_of_links(url, s=storage):
 		if page is None:
 			page = s.get_page("www."+url+"/")
 		if page is None:
+			page = s.get_page("http://www."+url)
+		if page is None:
+			page = s.get_page("http://www."+url+"/")
+		if page is None:
+			page = s.get_page("https://www."+url)
+		if page is None:
+			page = s.get_page("https://www."+url+"/")
+		if page is None:
 			return []
 	except (UnicodeError, ValueError):
 		return []
