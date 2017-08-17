@@ -119,67 +119,64 @@ def main():
 	number_crawls = 200000
 	print_freq = 100000
 	term_steps = 50
-	n_runs = 1
 
 	# input("Press enter to continue...")
 
 	if os.path.isfile(all_urls_file):
 		os.remove(all_urls_file)
 
-	for run in range(n_runs):
-		print("#--------------- Run {} of {}".format(run+1, n_runs))
-		pages_crawled = 0; total_reward = 0; terminal_states = 0; num_steps = 0
-		recent_urls = []; reward_pages = []
-		reward_domain_set = set()
+	pages_crawled = 0; total_reward = 0; terminal_states = 0; num_steps = 0
+	recent_urls = []; reward_pages = []
+	reward_domain_set = set()
+
+	while num_steps < number_crawls:
+		url = get_random_url(start_url_list, recent_urls) 
+		steps_without_terminating = 0
 
 		while num_steps < number_crawls:
-			url = get_random_url(start_url_list, recent_urls) 
-			steps_without_terminating = 0
+			num_steps += 1
 
-			while num_steps < number_crawls:
-				num_steps += 1
+			# Track progress
+			progress_bar(num_steps, number_crawls)
+			if num_steps % print_freq == 0:
+				print("\nCrawled {} pages, total reward = {}, # terminal states = {}, remaining rewards = {}"\
+					.format(pages_crawled, total_reward, terminal_states, len(reward_urls)))
 
-				# Track progress
-				progress_bar(num_steps, number_crawls)
-				if num_steps % print_freq == 0:
-					print("\nCrawled {} pages, total reward = {}, # terminal states = {}, remaining rewards = {}"\
-						.format(pages_crawled, total_reward, terminal_states, len(reward_urls)))
+			# Keep track of recent URLs (to avoid loops)
+			recent_urls.append(url)
+			if len(recent_urls) > cycle_freq:
+				recent_urls = recent_urls[-cycle_freq:]
 
-				# Keep track of recent URLs (to avoid loops)
-				recent_urls.append(url)
-				if len(recent_urls) > cycle_freq:
-					recent_urls = recent_urls[-cycle_freq:]
+			# Get rewards
+			r, reward_url_idx = get_reward(url, A_company, reward_urls)
+			pages_crawled += 1
+			total_reward += r
 
-				# Get rewards
-				r, reward_url_idx = get_reward(url, A_company, reward_urls)
-				pages_crawled += 1
-				total_reward += r
-
-				# List of next possible URLs 
-				link_list = get_list_of_links(url)
-				link_list = [l for l in link_list if ".uk" in l]
-				link_list = list(set(link_list) - set(recent_urls))
-				if len(link_list) == 0:
-					is_terminal = 1
-				else:
-					is_terminal = 0
+			# List of next possible URLs 
+			link_list = get_list_of_links(url)
+			link_list = [l for l in link_list if ".uk" in l]
+			link_list = list(set(link_list) - set(recent_urls))
+			if len(link_list) == 0:
+				is_terminal = 1
+			else:
+				is_terminal = 0
 
 
-				with open(all_urls_file, "a") as csv_file:
-					writer = csv.writer(csv_file, delimiter=',')
-					writer.writerow([url, r, is_terminal])
+			with open(all_urls_file, "a") as csv_file:
+				writer = csv.writer(csv_file, delimiter=',')
+				writer.writerow([url, r])
 
-				if r > 0 or is_terminal == 1:
-					break
+			if r > 0 or is_terminal == 1:
+				break
 
-				# Choose next URL from list
-				if len(link_list) == 0:
-					terminal_states += 1
-					break
-				steps_without_terminating += 1
-				if steps_without_terminating >= term_steps:
-					break
-				url = random.choice(link_list)
+			# Choose next URL from list
+			if len(link_list) == 0:
+				terminal_states += 1
+				break
+			steps_without_terminating += 1
+			if steps_without_terminating >= term_steps:
+				break
+			url = random.choice(link_list)
 
 
 if __name__ == "__main__":

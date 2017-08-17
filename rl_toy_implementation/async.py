@@ -363,7 +363,7 @@ class Worker():
 
 						# Print output if eval worker
 						if self.eval_worker == True:
-							# self.write_results(url, r, is_terminal)
+							self.write_results(url, r, is_terminal)
 							self.update_progress()
 
 						# Choose next URL (and check for looping)
