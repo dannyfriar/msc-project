@@ -60,9 +60,17 @@ def get_list_of_links(url, s=storage):
 		if page is None:
 			page = s.get_page("http://www."+url+"/")
 		if page is None:
+			page = s.get_page("https://"+url)
+		if page is None:
+			page = s.get_page("http://"+url+"/")
+		if page is None:
 			page = s.get_page("https://www."+url)
 		if page is None:
 			page = s.get_page("https://www."+url+"/")
+		if page is None:
+			page = s.get_page("https://"+url)
+		if page is None:
+			page = s.get_page("https://"+url+"/")
 		if page is None:
 			return []
 	except (UnicodeError, ValueError):
@@ -139,7 +147,7 @@ def main():
 			# Track progress
 			progress_bar(num_steps, number_crawls)
 			if num_steps % print_freq == 0:
-				print("\nCrawled {} pages, total reward = {}, # terminal states = {}, remaining rewards = {}"\
+				print("\nCrawled {} pages, total reward = {}, # terminal states = {}"\
 					.format(pages_crawled, total_reward, terminal_states, len(reward_urls)))
 
 			# Keep track of recent URLs (to avoid loops)
@@ -161,10 +169,9 @@ def main():
 			else:
 				is_terminal = 0
 
-
 			with open(all_urls_file, "a") as csv_file:
 				writer = csv.writer(csv_file, delimiter=',')
-				writer.writerow([url, r])
+				writer.writerow([url, r, is_terminal])
 
 			if r > 0 or is_terminal == 1:
 				break
