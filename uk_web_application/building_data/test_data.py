@@ -24,6 +24,14 @@ def get_list_of_links(url, s):
 		if page is None:
 			page = s.get_page("www."+url+"/")
 		if page is None:
+			page = s.get_page("http://"+url)
+		if page is None:
+			page = s.get_page("http://"+url+"/")
+		if page is None:
+			page = s.get_page("https://"+url)
+		if page is None:
+			page = s.get_page("https://"+url+"/")
+		if page is None:
 			page = s.get_page("http://www."+url)
 		if page is None:
 			page = s.get_page("http://www."+url+"/")
@@ -34,6 +42,7 @@ def get_list_of_links(url, s):
 		if page is None:
 			return []
 	except (UnicodeError, ValueError):
+		print("Exception")
 		return []
 	try:
 		link_list = [l.url.replace("http://", "").replace("https://", "") for l in page.links if l.url[:4] == "http"]
@@ -121,8 +130,9 @@ sample_size = 10000
 
 url = 'treasuretrails.co.uk'
 # print(s2.get_page('spyblog.org.uk'))
-print(get_list_of_links('spyblog.org.uk', s2))
-
+print(get_list_of_links('campaigns.which.co.uk/scams-fraud-safeguard/', s2))
+# print(s2.get_page('https://campaigns.which.co.uk/scams-fraud-safeguard/'))
+# print(s2.get_page('https://www.campaigns.which.co.uk/scams-fraud-safeguard/'))
 
 
 
