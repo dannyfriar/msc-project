@@ -130,7 +130,7 @@ def main():
 	all_urls_file = RESULTS_FOLDER + "all_urls.csv"
 	
 	##-------------------- Random crawling
-	cycle_freq = 20
+	cycle_freq = 50
 	number_crawls = 200000
 	print_freq = 100000
 	term_steps = 50
