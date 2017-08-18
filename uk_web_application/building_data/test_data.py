@@ -7,7 +7,7 @@ import pandas as pd
 
 from evolutionai import StorageEngine
 s1 = StorageEngine("/nvme/rl_project_webcache/")
-s2 = StorageEngine("/nvme/uk_web/")
+s2 = StorageEngine("/nvme/uk-web/")
 
 def get_list_of_links(url, s):
 	"""Use the LMDB database to get a list of links for a given URL"""

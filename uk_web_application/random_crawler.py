@@ -13,7 +13,7 @@ import tensorflow as tf
 from collections import OrderedDict
 
 from evolutionai import StorageEngine
-storage = StorageEngine("/nvme/uk_web/")
+storage = StorageEngine("/nvme/uk-web/")
 
 RESULTS_FOLDER = "results/random_results/"
 
