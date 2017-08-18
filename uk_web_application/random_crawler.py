@@ -171,17 +171,17 @@ def main():
 			link_list = get_list_of_links(url)
 			link_list = [l for l in link_list if ".uk" in l]
 			link_list = list(set(link_list) - set(recent_urls))
-			if len(link_list) == 0:
+			if len(link_list) == 0 or r > 0:
 				is_terminal = 1
+				terminal_states += 1
 			else:
 				is_terminal = 0
-				terminal_states += 1
 
 			with open(all_urls_file, "a") as csv_file:
 				writer = csv.writer(csv_file, delimiter=',')
 				writer.writerow([url, r, is_terminal])
 
-			if r > 0 or is_terminal == 1:
+			if is_terminal == 1:
 				break
 
 			# Choose next URL from list
