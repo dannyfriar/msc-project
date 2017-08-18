@@ -45,7 +45,7 @@ def check_strings(A, search_list, string_to_search):
 
 ##-----------------------------------------------------------
 ##-------- Get links from LMDB data functions ---------------
-def get_list_of_links(url, s):
+def get_list_of_links(url, s=storage):
 	"""Use the LMDB database to get a list of links for a given URL"""
 	url = url.replace('https://', '')
 	url = url.replace('http://', '')
