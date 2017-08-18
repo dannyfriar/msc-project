@@ -44,26 +44,32 @@ def stream_file(path, topic, client_id):
 	cctx = zstd.ZstdCompressor(level=5, write_content_size=True)
 	f = gzip.open(path, "rt")
 	data_list = []
+	error_count = 0; line_count = 0
 
 	for count, line in enumerate(f):
+		line_count += 1
 		# progress_bar(count, 3000)
 		if line[0] != "{":
+			error_count += 1
 			continue
 		j = json.loads(line)
 		if "WARC-Target-URI" not in j["Envelope"]["WARC-Header-Metadata"]:
-			continue
-		if "HTTP-Response-Metadata" not in j['Envelope']['Payload-Metadata']:
-			continue
-		if "HTML-Metadata" not in j['Envelope']['Payload-Metadata']["HTTP-Response-Metadata"]:
+			error_count += 1
 			continue
 		page = webpage_capnp.Page.new_message()
 		page.url = j["Envelope"]["WARC-Header-Metadata"]["WARC-Target-URI"]
 		tld_counter[page.url.split("/")[2].split(".")[-1]] += 1
 		if not page.url.split("/")[2].endswith(tuple(whitelist)):
 			continue
-		page.title = j['Envelope']['Payload-Metadata']["HTTP-Response-Metadata"]['HTML-Metadata'] \
-			.get('Head', {}).get('Title', "")
-		links = j['Envelope']['Payload-Metadata']["HTTP-Response-Metadata"]['HTML-Metadata'].get('Links', [])
+		try:
+			page.title = j['Envelope']['Payload-Metadata']["HTTP-Response-Metadata"]['HTML-Metadata'] \
+				.get('Head', {}).get('Title', "")
+		except KeyError:
+			page.title = ''
+		try:
+			links = j['Envelope']['Payload-Metadata']["HTTP-Response-Metadata"]['HTML-Metadata'].get('Links', [])
+		except KeyError:
+			links = []
 		clinks = page.init("links", len(links))
 
 		for i, d in enumerate(links):
@@ -77,7 +83,7 @@ def stream_file(path, topic, client_id):
 		data_list.append((page.url[:500].encode("UTF-8"), compressed))
 
 	with env.begin(write=True) as txn:
-		txn.cursor().putmulti(data_list)
+		txn.cursor().putmulti(data_list, overwrite=False)
 
 
 def main():
@@ -85,14 +91,13 @@ def main():
 	parser = argparse.ArgumentParser()
 	parser.add_argument("dir")
 	parser.add_argument("db_path")
-	# parser.add_argument("num_files")
 	args = parser.parse_args()
 
 	global env
 	env = lmdb.open(args.db_path, map_size=1024**4)
 	file_list = sorted(os.listdir(args.dir))
 	file_list = [l for l in file_list if "gz" in l]
-	file_list = file_list[35000:]
+	# file_list = file_list[35000:]
 	print("Running for directory {} with {} files".format(args.dir, len(file_list)))
 
 	print_iters = 100

@@ -11,6 +11,10 @@ s2 = StorageEngine("/nvme/uk_web/")
 
 def get_list_of_links(url, s):
 	"""Use the LMDB database to get a list of links for a given URL"""
+	url = url.replace('https://', '')
+	url = url.replace('http://', '')
+	url = url.replace('www.', '')
+	url = url.rstrip('/')
 	try:
 		page = s.get_page(url)
 		if page is None:
@@ -116,8 +120,8 @@ sample_size = 10000
 
 
 url = 'treasuretrails.co.uk'
-print(s2.get_page('http://www.bottonline.co.uk/'))
-print(get_list_of_links('www.bottonline.co.uk', s2))
+# print(s2.get_page('spyblog.org.uk'))
+print(get_list_of_links('spyblog.org.uk', s2))
 
 
 
