@@ -129,10 +129,8 @@ sample_size = 10000
 
 
 url = 'treasuretrails.co.uk'
-# print(s2.get_page('spyblog.org.uk'))
-print(get_list_of_links('campaigns.which.co.uk/scams-fraud-safeguard/', s2))
-# print(s2.get_page('https://campaigns.which.co.uk/scams-fraud-safeguard/'))
-# print(s2.get_page('https://www.campaigns.which.co.uk/scams-fraud-safeguard/'))
+# print(get_list_of_links('www.thaisummerfair.co.uk/', s2))
+print(s2.get_page('http://www.mirror.co.uk/corrections-clarifications'))
 
 
 

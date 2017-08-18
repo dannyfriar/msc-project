@@ -17,6 +17,8 @@ import glob
 import time
 import logging
 import cython
+import numpy as np
+import pandas as pd
 
 from evolutionai import webpage_capnp
 from evolutionai import StorageEngine
@@ -43,7 +45,7 @@ def stream_file(path, topic, client_id):
 	global env, dctx
 	cctx = zstd.ZstdCompressor(level=5, write_content_size=True)
 	f = gzip.open(path, "rt")
-	data_list = []
+	data_list = []; url_list = []
 	error_count = 0; line_count = 0
 
 	for count, line in enumerate(f):
@@ -65,10 +67,11 @@ def stream_file(path, topic, client_id):
 			page.title = j['Envelope']['Payload-Metadata']["HTTP-Response-Metadata"]['HTML-Metadata'] \
 				.get('Head', {}).get('Title', "")
 		except KeyError:
-			page.title = ''
+			page.title = 'Fake title'
 		try:
 			links = j['Envelope']['Payload-Metadata']["HTTP-Response-Metadata"]['HTML-Metadata'].get('Links', [])
 		except KeyError:
+			# print("No links...")
 			links = []
 		clinks = page.init("links", len(links))
 
@@ -81,9 +84,13 @@ def stream_file(path, topic, client_id):
 		payload = page.to_bytes()
 		compressed = cctx.compress(payload)
 		data_list.append((page.url[:500].encode("UTF-8"), compressed))
+		url_list.append(page.url[:500].encode("UTF-8"))
 
 	with env.begin(write=True) as txn:
-		txn.cursor().putmulti(data_list, overwrite=False)
+		save_tuple = txn.cursor().putmulti(data_list, overwrite=True)
+		print(save_tuple[1])
+
+	pd.DataFrame.from_dict({'url': url_list}).to_csv("first_file_urls.csv")
 
 
 def main():
@@ -105,6 +112,7 @@ def main():
 	for idx, file in enumerate(file_list):
 		filename = args.dir+ "/" + file
 		progress_bar(idx+1, len(file_list))
+		input("Press enter to continue...")
 		try:
 			logging.info('Running for file {}...'.format(file))
 			stream_file(filename, "links", client_id)
