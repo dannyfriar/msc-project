@@ -45,8 +45,12 @@ def check_strings(A, search_list, string_to_search):
 
 ##-----------------------------------------------------------
 ##-------- Get links from LMDB data functions ---------------
-def get_list_of_links(url, s=storage):
+def get_list_of_links(url, s):
 	"""Use the LMDB database to get a list of links for a given URL"""
+	url = url.replace('https://', '')
+	url = url.replace('http://', '')
+	url = url.replace('www.', '')
+	url = url.rstrip('/')
 	try:
 		page = s.get_page(url)
 		if page is None:
@@ -60,17 +64,9 @@ def get_list_of_links(url, s=storage):
 		if page is None:
 			page = s.get_page("http://www."+url+"/")
 		if page is None:
-			page = s.get_page("https://"+url)
-		if page is None:
-			page = s.get_page("http://"+url+"/")
-		if page is None:
 			page = s.get_page("https://www."+url)
 		if page is None:
 			page = s.get_page("https://www."+url+"/")
-		if page is None:
-			page = s.get_page("https://"+url)
-		if page is None:
-			page = s.get_page("https://"+url+"/")
 		if page is None:
 			return []
 	except (UnicodeError, ValueError):
@@ -168,6 +164,7 @@ def main():
 				is_terminal = 1
 			else:
 				is_terminal = 0
+				terminal_states += 1
 
 			with open(all_urls_file, "a") as csv_file:
 				writer = csv.writer(csv_file, delimiter=',')
