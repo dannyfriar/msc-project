@@ -119,10 +119,10 @@ def main():
 	A_company = init_automaton(reward_urls)  # Aho-corasick automaton
 	A_company.make_automaton()
 
-	# start_url_list = links_df['url'].tolist()
-	start_url_list1 = links_df[links_df['type']=='first-hop-link']['url'].tolist()
-	start_url_list2 = links_df[links_df['type']=='second-hop-link']['url'].tolist()
-	start_url_list = start_url_list1 + start_url_list2
+	start_url_list = links_df['url'].tolist()
+	# start_url_list1 = links_df[links_df['type']=='first-hop-link']['url'].tolist()
+	# start_url_list2 = links_df[links_df['type']=='second-hop-link']['url'].tolist()
+	# start_url_list = start_url_list1 + start_url_list2
 	start_url_list = [l for l in start_url_list if ".uk" in l]
 	print(len(start_url_list))
 
@@ -130,7 +130,7 @@ def main():
 	all_urls_file = RESULTS_FOLDER + "all_urls.csv"
 	
 	##-------------------- Random crawling
-	cycle_freq = 50
+	cycle_freq = 20
 	number_crawls = 200000
 	print_freq = 100000
 	term_steps = 50
