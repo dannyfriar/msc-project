@@ -56,23 +56,19 @@ def stream_file(path, topic, client_id):
 			continue
 		j = json.loads(line)
 		if "WARC-Target-URI" not in j["Envelope"]["WARC-Header-Metadata"]:
-			error_count += 1
+			continue
+		if "HTTP-Response-Metadata" not in j['Envelope']['Payload-Metadata']:
+			continue
+		if "HTML-Metadata" not in j['Envelope']['Payload-Metadata']["HTTP-Response-Metadata"]:
 			continue
 		page = webpage_capnp.Page.new_message()
 		page.url = j["Envelope"]["WARC-Header-Metadata"]["WARC-Target-URI"]
 		tld_counter[page.url.split("/")[2].split(".")[-1]] += 1
 		if not page.url.split("/")[2].endswith(tuple(whitelist)):
 			continue
-		try:
-			page.title = j['Envelope']['Payload-Metadata']["HTTP-Response-Metadata"]['HTML-Metadata'] \
-				.get('Head', {}).get('Title', "")
-		except KeyError:
-			page.title = 'Fake title'
-		try:
-			links = j['Envelope']['Payload-Metadata']["HTTP-Response-Metadata"]['HTML-Metadata'].get('Links', [])
-		except KeyError:
-			# print("No links...")
-			links = []
+		page.title = j['Envelope']['Payload-Metadata']["HTTP-Response-Metadata"]['HTML-Metadata'] \
+			.get('Head', {}).get('Title', "")
+		links = j['Envelope']['Payload-Metadata']["HTTP-Response-Metadata"]['HTML-Metadata'].get('Links', [])
 		clinks = page.init("links", len(links))
 
 		for i, d in enumerate(links):
@@ -87,10 +83,7 @@ def stream_file(path, topic, client_id):
 		url_list.append(page.url[:500].encode("UTF-8"))
 
 	with env.begin(write=True) as txn:
-		save_tuple = txn.cursor().putmulti(data_list, overwrite=True)
-		print(save_tuple[1])
-
-	pd.DataFrame.from_dict({'url': url_list}).to_csv("first_file_urls.csv")
+		txn.cursor().putmulti(data_list, overwrite=True)
 
 
 def main():
@@ -112,7 +105,6 @@ def main():
 	for idx, file in enumerate(file_list):
 		filename = args.dir+ "/" + file
 		progress_bar(idx+1, len(file_list))
-		input("Press enter to continue...")
 		try:
 			logging.info('Running for file {}...'.format(file))
 			stream_file(filename, "links", client_id)

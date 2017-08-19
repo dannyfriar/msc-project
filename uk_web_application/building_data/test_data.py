@@ -128,9 +128,9 @@ sample_size = 10000
 # print(s2.get_page(url))
 
 
-url = 'treasuretrails.co.uk'
+# url = 'treasuretrails.co.uk'
 # print(get_list_of_links('www.thaisummerfair.co.uk/', s2))
-print(s2.get_page('http://www.mirror.co.uk/corrections-clarifications'))
+print(s2.get_page('http://www.pocketgamer.co.uk'))
 
 
 

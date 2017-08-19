@@ -167,7 +167,7 @@ def main():
 			pages_crawled += 1
 			total_reward += r
 
-			# List of next possible URLs 
+			# List of next possible URLs
 			link_list = get_list_of_links(url)
 			link_list = [l for l in link_list if ".uk" in l]
 			link_list = list(set(link_list) - set(recent_urls))
