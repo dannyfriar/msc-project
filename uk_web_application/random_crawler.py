@@ -92,16 +92,16 @@ def extract_domain(url):
 	return url.split("//")[-1].split("/")[0]
 
 def get_uk_web_links(url, s=storage):
-	link_list = get_list_of_links(url, s)
-	if len(link_list) > 0:
+	try:
+		link_list = get_list_of_links(url, s)
+		if len(link_list) > 0:
+			return link_list
+		domain_url = extract_domain(url)
+		link_list = get_list_of_links(domain_url, s)
 		return link_list
-	domain_url = extract_domain(url)
-	if len(domain_url) > 0:
-		try:
-			link_list = get_list_of_links(domain_url, s)
-		except lmdb.BadValsizeError:
-			return []
-	return []
+	except lmdb.BadValSize:
+		return []
+
 
 ##-----------------------------------------------------------
 ##-------- RL Functions -------------------------------------
@@ -184,7 +184,7 @@ def main():
 			total_reward += r
 
 			# List of next possible URLs
-			link_list = get_list_of_links(url)
+			link_list = get_uk_web_links(url)
 			link_list = [l for l in link_list if ".uk" in l]
 			link_list = list(set(link_list) - set(recent_urls))
 			if len(link_list) == 0 or r > 0:
