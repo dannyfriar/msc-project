@@ -95,13 +95,12 @@ def get_uk_web_links(url, s=storage):
 	try:
 		link_list = get_list_of_links(url, s)
 		if len(link_list) > 0:
-			return link_list
+			return link_list[:100]
 		domain_url = extract_domain(url)
 		link_list = get_list_of_links(domain_url, s)
-		return link_list
-	except lmdb.BadValSize:
+		return link_list[:100]
+	except lmdb.BadValsizeError:
 		return []
-
 
 ##-----------------------------------------------------------
 ##-------- RL Functions -------------------------------------
@@ -147,11 +146,9 @@ def main():
 	
 	##-------------------- Random crawling
 	cycle_freq = 50
-	number_crawls = 10000
-	print_freq = 1000
+	number_crawls = 200000
+	print_freq = 10000
 	term_steps = 50
-
-	# input("Press enter to continue...")
 
 	if os.path.isfile(all_urls_file):
 		os.remove(all_urls_file)
