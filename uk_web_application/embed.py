@@ -271,7 +271,7 @@ def main():
 	term_steps = 20
 	copy_steps = 100
 	num_steps = 200000  # no. crawled pages before stopping
-	print_freq = 1000
+	print_freq = 100000
 	start_eps = 0.1
 	end_eps = 0
 	eps_decay = 2 / num_steps
@@ -283,6 +283,7 @@ def main():
 	embedding_size = 300
 	filter_sizes = [1, 2, 3, 4]
 	num_filters = 4
+	n_runs = 5
 
 	##-------------------- Read in data
 	print("#-------- Reading data...")
@@ -310,99 +311,101 @@ def main():
 	weights_shape = len(words_list)
 
 	# File locations
-	all_urls_file = RESULTS_FOLDER + "all_urls.csv"
+	all_urls_file = RESULTS_FOLDER + "avg_all_urls.csv"
 	model_save_file = MODEL_FOLDER + "embed"
 
 	##------------------- Initialize Crawler Agent and TF graph/session
 	if os.path.isfile(all_urls_file):
 		os.remove(all_urls_file)
 
-	step_count = 0; pages_crawled = 0; total_reward = 0; terminal_states = 0
-	recent_urls = []; reward_pages = []; found_rewards = []; reward_domain_set = set()
+	for run in range(n_runs):
+		print("#------------- Run {}...".format(run))
+		step_count = 0; pages_crawled = 0; total_reward = 0; terminal_states = 0
+		recent_urls = []; reward_pages = []; found_rewards = []; reward_domain_set = set()
 
-	tf.reset_default_graph()
-	agent = CrawlerAgent(weights_shape, filter_sizes, num_filters, embeddings, embedding_size, max_len,
-		model_save_file, gamma=gamma, learning_rate=learning_rate)
-	init = tf.global_variables_initializer()
-	saver = tf.train.Saver()
+		tf.reset_default_graph()
+		agent = CrawlerAgent(weights_shape, filter_sizes, num_filters, embeddings, embedding_size, max_len,
+			model_save_file, gamma=gamma, learning_rate=learning_rate)
+		init = tf.global_variables_initializer()
+		saver = tf.train.Saver()
 
-	with tf.Session() as sess:
-		sess.run(init)
-
-		while step_count < num_steps:
-			url = get_random_url(start_url_list, recent_urls)
-			steps_without_terminating = 0
+		with tf.Session() as sess:
+			sess.run(init)
 
 			while step_count < num_steps:
-				step_count += 1
+				url = get_random_url(start_url_list, recent_urls)
+				steps_without_terminating = 0
 
-				# Keep track of recent URLs (to avoid loops)
-				recent_urls.append(url)
-				if len(recent_urls) > cycle_freq:
-					recent_urls = recent_urls[-cycle_freq:]
+				while step_count < num_steps:
+					step_count += 1
 
-				# Get rewards
-				r, reward_url_idx = get_reward(url, A_company, reward_urls)
-				pages_crawled += 1
-				total_reward += r
-				if r > 0:
-					reward_pages.append(url)
-				
-				# Feature representation of current page (state) and links in page
-				state = build_url_feature_matrix(count_vec, [url], embeddings, max_len)
-				link_list = get_uk_web_links(url)
-				link_list = [l for l in link_list if ".uk" in l]
-				link_list = list(set(link_list) - set(recent_urls))
+					# Keep track of recent URLs (to avoid loops)
+					recent_urls.append(url)
+					if len(recent_urls) > cycle_freq:
+						recent_urls = recent_urls[-cycle_freq:]
 
-				# Check if terminal state
-				if r > 0 or len(link_list) == 0:
-					terminal_states += 1
-					is_terminal = 1
-					next_state_array = np.zeros(shape=(1, max_len))  # doesn't matter what this is
-				else:
-					is_terminal = 0
-					steps_without_terminating += 1
-					next_state_array = build_url_feature_matrix(count_vec, link_list, embeddings, max_len)
+					# Get rewards
+					r, reward_url_idx = get_reward(url, A_company, reward_urls)
+					pages_crawled += 1
+					total_reward += r
+					if r > 0:
+						reward_pages.append(url)
+					
+					# Feature representation of current page (state) and links in page
+					state = build_url_feature_matrix(count_vec, [url], embeddings, max_len)
+					link_list = get_uk_web_links(url)
+					link_list = [l for l in link_list if ".uk" in l]
+					link_list = list(set(link_list) - set(recent_urls))
 
-				# Train DQN
-				train_dict = {
-						agent.state: state, agent.next_state: next_state_array, 
-						agent.reward: r, agent.is_terminal: is_terminal
-				}
-				opt, loss, v_next  = sess.run([agent.opt, agent.loss, agent.v_next], feed_dict=train_dict)
-				v_next = v_next.reshape(-1)
+					# Check if terminal state
+					if r > 0 or len(link_list) == 0:
+						terminal_states += 1
+						is_terminal = 1
+						next_state_array = np.zeros(shape=(1, max_len))  # doesn't matter what this is
+					else:
+						is_terminal = 0
+						steps_without_terminating += 1
+						next_state_array = build_url_feature_matrix(count_vec, link_list, embeddings, max_len)
 
-				# Copy parameters every copy_steps transitions
-				if step_count % copy_steps == 0:
-					agent.update_target_net(sess, tf.trainable_variables())
+					# Train DQN
+					train_dict = {
+							agent.state: state, agent.next_state: next_state_array, 
+							agent.reward: r, agent.is_terminal: is_terminal
+					}
+					opt, loss, v_next  = sess.run([agent.opt, agent.loss, agent.v_next], feed_dict=train_dict)
+					v_next = v_next.reshape(-1)
 
-				# Print progress + save transitions
-				progress_bar(step_count+1, num_steps)
-				if step_count % print_freq == 0:
-					print("\nCrawled {} pages, total reward = {}, # terminal states = {}"\
-					.format(pages_crawled, total_reward, terminal_states))
+					# Copy parameters every copy_steps transitions
+					if step_count % copy_steps == 0:
+						agent.update_target_net(sess, tf.trainable_variables())
 
-				with open(all_urls_file, "a") as csv_file:
-					writer = csv.writer(csv_file, delimiter=',')
-					writer.writerow([url, r, is_terminal])
+					# Print progress + save transitions
+					progress_bar(step_count+1, num_steps)
+					if step_count % print_freq == 0:
+						print("\nCrawled {} pages, total reward = {}, # terminal states = {}"\
+						.format(pages_crawled, total_reward, terminal_states))
 
-				# Decay epsilon
-				if epsilon > end_eps:
-					epsilon = epsilon - eps_decay
+					with open(all_urls_file, "a") as csv_file:
+						writer = csv.writer(csv_file, delimiter=',')
+						writer.writerow([url, r, is_terminal, run])
 
-				# Choose next URL (and check for looping)
-				if is_terminal == 1:
-					break
-				if steps_without_terminating >= term_steps:  # to prevent cycles
-					break
-				a = epsilon_greedy(epsilon, v_next)
-				url = link_list[a]
-		##-------------------------------------------------------------------------
+					# Decay epsilon
+					if epsilon > end_eps:
+						epsilon = epsilon - eps_decay
 
-		print("\nCrawled {} pages, total reward = {}, # terminal states = {}"\
-			.format(pages_crawled, total_reward, terminal_states))
-		agent.save_tf_model(sess, saver)
-		sess.close()
+					# Choose next URL (and check for looping)
+					if is_terminal == 1:
+						break
+					if steps_without_terminating >= term_steps:  # to prevent cycles
+						break
+					a = epsilon_greedy(epsilon, v_next)
+					url = link_list[a]
+			##-------------------------------------------------------------------------
+
+			print("\nCrawled {} pages, total reward = {}, # terminal states = {}"\
+				.format(pages_crawled, total_reward, terminal_states))
+			agent.save_tf_model(sess, saver)
+			sess.close()
 
 
 if __name__ == "__main__":
