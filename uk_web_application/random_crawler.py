@@ -3,6 +3,7 @@ import sys
 import re
 import csv
 import time
+import lmdb
 import random
 import argparse
 import ahocorasick
@@ -87,6 +88,21 @@ def get_list_of_links(url, s=storage):
 		return []
 	return link_list
 
+def extract_domain(url):
+	return url.split("//")[-1].split("/")[0]
+
+def get_uk_web_links(url, s=storage):
+	link_list = get_list_of_links(url, s)
+	if len(link_list) > 0:
+		return link_list
+	domain_url = extract_domain(url)
+	if len(domain_url) > 0:
+		try:
+			link_list = get_list_of_links(domain_url, s)
+		except lmdb.BadValsizeError:
+			return []
+	return []
+
 ##-----------------------------------------------------------
 ##-------- RL Functions -------------------------------------
 def get_random_url(url_list, recent_urls):
@@ -131,8 +147,8 @@ def main():
 	
 	##-------------------- Random crawling
 	cycle_freq = 50
-	number_crawls = 200000
-	print_freq = 100000
+	number_crawls = 10000
+	print_freq = 1000
 	term_steps = 50
 
 	# input("Press enter to continue...")

@@ -6,8 +6,12 @@ import numpy as np
 import pandas as pd
 
 from evolutionai import StorageEngine
+from url_normalize import url_normalize
+from urllib.parse import urlsplit
+
 s1 = StorageEngine("/nvme/rl_project_webcache/")
 s2 = StorageEngine("/nvme/uk-web/")
+s3 = StorageEngine("/nvme/uk-web-backup/")
 
 def get_list_of_links(url, s):
 	"""Use the LMDB database to get a list of links for a given URL"""
@@ -50,6 +54,19 @@ def get_list_of_links(url, s):
 	except UnicodeDecodeError:
 		return []
 	return link_list
+
+def extract_domain(url):
+	return url.split("//")[-1].split("/")[0]
+
+def get_uk_web_links(url, s):
+	link_list = get_list_of_links(url, s)
+	if len(link_list) > 0:
+		return link_list
+	domain_url = extract_domain(url)
+	if len(domain) > 0:
+		return get_list_of_links(domain, s)
+	return []
+
 
 #-------------------------- RL toy problem case
 sample_size = 10000
@@ -113,6 +130,19 @@ sample_size = 10000
 # pd.DataFrame.from_dict({'num_links': link_list_len}).to_csv('test_results/uk_links.csv')
 
 
+
+#----------------- Testing extract domain function
+# url_list = ['shedworking.co.uk/2011/09/', 'store.lexisnexis.co.uk/categories/accountancy', 'www.hay-kilner.co.uk/people/lucy-gray/',
+# 'miceman.blogspot.co.uk/2010/12/', 'www.bbc.co.uk/news/uk-20264520']
+
+# for url in url_list:
+# 	print(url)
+# 	print(extract_domain(url))
+
+
+print(len(extract_domain('http:/blog.policy.manchester.ac.uk//')))
+
+
 # #---------------------- Check if page text is available
 # count = 0; uk_url_list = []
 # env2 = lmdb.open("/nvme/uk_web", readonly=True)
@@ -128,9 +158,34 @@ sample_size = 10000
 # print(s2.get_page(url))
 
 
-# url = 'treasuretrails.co.uk'
-# print(get_list_of_links('www.thaisummerfair.co.uk/', s2))
-print(s2.get_page('http://www.pocketgamer.co.uk'))
+# print(get_list_of_links(url, s2))
+# print(get_list_of_links('tinyoffice.co.uk', s3))
+# print(s2.get_page('http://www.independent.co.uk/'))
+# print(s3.get_page('http://www.tinyoffice.co.uk'))
+# print(s2.get_page('http://www.google.co.uk'))
+
+
+# ## Testing get_page function
+# url = 'dating.independent.co.uk'
+# env = lmdb.open('/nvme/uk-web/', readonly=True)
+# with env.begin(write=False) as txn:
+# 	url = url_normalize(url)
+# 	print(url)
+# 	payload = txn.get(url.encode('UTF-8'))
+# 	print(payload)
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
