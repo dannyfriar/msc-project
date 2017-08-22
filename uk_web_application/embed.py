@@ -270,7 +270,7 @@ def main():
 	cycle_freq = 50
 	term_steps = 10
 	copy_steps = 100
-	num_steps = 200000  # no. crawled pages before stopping
+	num_steps = 1000000  # no. crawled pages before stopping
 
 	print_freq = 100000
 	start_eps = 0.1
@@ -284,7 +284,7 @@ def main():
 	embedding_size = 300
 	filter_sizes = [1, 2, 3, 4]
 	num_filters = 4
-	n_runs = 5
+	n_runs = 1
 
 	##-------------------- Read in data
 	print("#-------- Reading data...")
@@ -312,7 +312,7 @@ def main():
 	weights_shape = len(words_list)
 
 	# File locations
-	all_urls_file = RESULTS_FOLDER + "avg_all_urls.csv"
+	all_urls_file = RESULTS_FOLDER + "all_urls_1m.csv"
 	model_save_file = MODEL_FOLDER + "embed"
 
 	##------------------- Initialize Crawler Agent and TF graph/session

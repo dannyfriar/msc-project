@@ -139,17 +139,16 @@ def main():
 	# start_url_list2 = links_df[links_df['type']=='second-hop-link']['url'].tolist()
 	# start_url_list = start_url_list1 + start_url_list2
 	start_url_list = [l for l in start_url_list if ".uk" in l]
-	print(len(start_url_list))
 
 	# Set paths
-	all_urls_file = RESULTS_FOLDER + "avg_all_urls.csv"
+	all_urls_file = RESULTS_FOLDER + "all_urls_1m.csv"
 	
 	##-------------------- Random crawling
 	cycle_freq = 50
-	number_crawls = 200000
+	number_crawls = 1000000
 	print_freq = 100000
 	term_steps = 50
-	n_runs = 5
+	n_runs = 1
 
 	if os.path.isfile(all_urls_file):
 		os.remove(all_urls_file)
