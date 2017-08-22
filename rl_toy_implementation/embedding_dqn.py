@@ -161,7 +161,7 @@ class CrawlerAgent(object):
 		embedded_next_state = tf.nn.l2_normalize(embedded_next_state, 1)
 
 		W_out_target = tf.get_variable("W_out_target", [self.num_filters_total, 1],
-			initializer=tf.random_normal_initializer(mean=0.0, stddev=0.001))
+			initializer=tf.random_normal_initializer(mean=0.0, stddev=1/self.num_filters_total))
 		b_out_target = tf.get_variable("b_out_target", [1], initializer=tf.constant_initializer(0.001))
 
 		# Convolutions for s'
@@ -189,7 +189,7 @@ class CrawlerAgent(object):
 		embedded_state = tf.nn.l2_normalize(embedded_state, 1)
 
 		W_out = tf.get_variable("W_out", [self.num_filters_total, 1], 
-			initializer=tf.random_normal_initializer(mean=0.0, stddev=0.001))
+			initializer=tf.random_normal_initializer(mean=0.0, stddev=1/self.num_filters_total))
 		b_out = tf.get_variable("b_out", [1], initializer=tf.constant_initializer(0.001))
 
 		# Convolutions for s
@@ -248,7 +248,7 @@ def main():
 	gamma = 0.75
 	learning_rate = 0.001
 	reload_model = False
-	n_runs = 5
+	n_runs = 10
 
 	max_len = 50
 	embedding_size = 300

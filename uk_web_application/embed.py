@@ -268,13 +268,14 @@ class CrawlerAgent(object):
 def main():
 	##-------------------- Parameters
 	cycle_freq = 50
-	term_steps = 15
+	term_steps = 10
 	copy_steps = 100
 	num_steps = 200000  # no. crawled pages before stopping
+
 	print_freq = 100000
 	start_eps = 0.1
 	end_eps = 0
-	eps_decay = 2 / num_steps
+	eps_decay = 2.5 / num_steps
 	epsilon = start_eps
 	gamma = 0.75
 	learning_rate = 0.001

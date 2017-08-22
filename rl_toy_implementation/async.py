@@ -166,7 +166,7 @@ class QNetwork(object):
 			embedded_next_state = tf.nn.l2_normalize(embedded_next_state, 1)
 
 			self.W_out = tf.get_variable("W_out", [self.num_filters_total, 1], 
-				initializer=tf.random_normal_initializer(mean=0.0, stddev=0.001))
+				initializer=tf.random_normal_initializer(mean=0.0, stddev=1/self.num_filters_total))
 			self.b_out = tf.get_variable("b_out", [1], initializer=tf.constant_initializer(0.001))
 
 			# Convolutions for s and s'
