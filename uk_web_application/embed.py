@@ -268,7 +268,7 @@ class CrawlerAgent(object):
 def main():
 	##-------------------- Parameters
 	cycle_freq = 50
-	term_steps = 10
+	term_steps = 50
 	copy_steps = 100
 	num_steps = 1000000  # no. crawled pages before stopping
 
@@ -381,7 +381,7 @@ def main():
 						agent.update_target_net(sess, tf.trainable_variables())
 
 					# Print progress + save transitions
-					progress_bar(step_count+1, num_steps)
+					# progress_bar(step_count+1, num_steps)
 					if step_count % print_freq == 0:
 						print("\nCrawled {} pages, total reward = {}, # terminal states = {}"\
 						.format(pages_crawled, total_reward, terminal_states))
