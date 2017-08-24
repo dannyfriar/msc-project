@@ -475,8 +475,8 @@ def main():
 	else:
 		print("#-------------- Training model...")
 		with tf.device("/cpu:0"):
-			num_workers = int(multiprocessing.cpu_count()/2) # Set workers to number of available CPU threads
-			# num_workers = 10
+			# num_workers = int(multiprocessing.cpu_count()) - 1 # Set workers to number of available CPU threads
+			num_workers = 10
 			workers = []
 
 			# Create worker classes
