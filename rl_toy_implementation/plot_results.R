@@ -40,7 +40,7 @@ results_datatable <- function(folder, filename) {
   else if (grepl("classifier", folder) | grepl("async", folder))
     names(df) <- c('url', 'reward', 'is_terminal')
   else
-    names(df) <- c('url', 'reward', 'is_terminal', 'loss')
+    names(df) <- c('url', 'reward', 'is_terminal')
   df$step <- 1:nrow(df)
   df$domain <- sapply(df$url, function(x) sub("/.*$","", x))
   df$domain <- sapply(df$domain, function(x) sub("www.","", x))
@@ -158,20 +158,25 @@ multiple_runs_datatable <- function(folder, filename) {
 random_urls <- multiple_runs_datatable("results/random_crawler_results/", path_ending)
 random_urls$type <- "Random"
 linear_urls <- multiple_runs_datatable("results/linear_dqn_results/", path_ending)
-linear_urls$type <- "Q-learning"
+linear_urls$type <- "Linear Q-learning"
 embed_urls <- multiple_runs_datatable("results/embedding_results/", path_ending)
 embed_urls$type <- "DQN+embedding"
 class_urls <- multiple_runs_datatable("results/classifier_results/", "all_urls_crawler.csv")
 class_urls$type <- "Classifier"
+async_urls <- multiple_runs_datatable("results/classifier_results/", "all_urls_crawler.csv")
+async_urls$type <- "Async"
 
-plot_df <- rbind(class_urls, async_plot, embed_urls, random_urls)
+plot_df <- rbind(class_urls, async_urls, embed_urls, linear_urls, random_urls)
+# write.csv(plot_df, "~/plot_df.csv")
+
 g <- ggplot(data=plot_df, aes(x=step, y=mean_reward, color=type)) + geom_line(size=0.9)
-# g <- g + geom_ribbon(aes(ymin=mean_reward+stdev, ymax=mean_reward-stdev, fill=type), alpha=0.35, color=NA)
+g <- g + geom_ribbon(aes(ymin=min_reward, ymax=max_reward, fill=type), alpha=0.35, color=NA)
 # g <- g + geom_errorbar(aes(ymax=mean_reward+stdev, ymin=mean_reward-stdev))
 g <- g + labs(x='Pages Crawled', y='Unique Rewards Found', color='')
 g <- g + theme(legend.position="top") + guides(color=guide_legend(nrow=2), fill=FALSE)
-g + scale_x_continuous(label=comma)
-
+g <- g + scale_x_continuous(label=comma)
+# g
+ggsave('~/plot.png', plot=g)
 
 
 
@@ -322,7 +327,6 @@ g_class <- g_class + facet_grid(value~., scales = "free_y") + guides(fill=FALSE,
 g_class + scale_x_continuous(limits=c(0, 1))
 
 
-
 ##-------------------- Distribution of number of links in the web graph
 rl_web_links <- data.table(read.csv("../uk_web_application/building_data/test_results/rl_web_graph_links.csv"))
 # rl_web_links <- rl_web_links[num_links<=500]
@@ -330,5 +334,4 @@ g_rl_links <- ggplot(data=rl_web_links, aes(x=num_links)) + geom_histogram(color
 g_rl_links <- g_rl_links + labs(x='Number of Outgoing Links', y='Count')
 g_rl_links
 summary(rl_web_links$num_links)
-
 
