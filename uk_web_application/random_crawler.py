@@ -95,10 +95,10 @@ def get_uk_web_links(url, s=storage):
 	try:
 		link_list = get_list_of_links(url, s)
 		if len(link_list) > 0:
-			return link_list[:100]
+			return link_list
 		domain_url = extract_domain(url)
 		link_list = get_list_of_links(domain_url, s)
-		return link_list[:100]
+		return link_list
 	except lmdb.BadValsizeError:
 		return []
 
