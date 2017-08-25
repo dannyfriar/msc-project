@@ -11,4 +11,3 @@ rl_toy_implementation/results/embedding_buffer_results/all_urls_revisit.csv
 *.Rhistory
 .RDataTmp
 uk_web_application/models
-wikipedia
