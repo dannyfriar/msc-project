@@ -140,9 +140,6 @@ sample_size = 10000
 # 	print(extract_domain(url))
 
 
-print(len(extract_domain('http:/blog.policy.manchester.ac.uk//')))
-
-
 # #---------------------- Check if page text is available
 # count = 0; uk_url_list = []
 # env2 = lmdb.open("/nvme/uk_web", readonly=True)
@@ -159,7 +156,10 @@ print(len(extract_domain('http:/blog.policy.manchester.ac.uk//')))
 
 
 # print(get_list_of_links(url, s2))
-# print(get_list_of_links('tinyoffice.co.uk', s3))
+print(get_list_of_links('https://www.indeed.co.uk/jobs', s2))
+print(get_list_of_links('https://www.indeed.co.uk/jobs-in-London', s2))
+
+# print(s2.get_page('http://www.glassdoor.co.uk/'))
 # print(s2.get_page('http://www.independent.co.uk/'))
 # print(s3.get_page('http://www.tinyoffice.co.uk'))
 # print(s2.get_page('http://www.google.co.uk'))
